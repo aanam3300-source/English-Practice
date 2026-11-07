@@ -314,7 +314,7 @@
                     <input 
                         type="password" 
                         v-model="tempApiKey" 
-                        placeholder="AIzaSy..."
+                        placeholder="Masukkan API Key (AQ... atau AIzaSy...)"
                         class="w-full border border-gray-300 rounded-xl p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-ios-blue"
                     >
                     <button @click="saveSettings" class="w-full bg-ios-blue text-white rounded-xl py-3 font-semibold active:bg-blue-600">
@@ -1370,7 +1370,7 @@
                             const errData = await res.json().catch(() => ({}));
                             console.error("API Error Response:", errData);
                             const detailedMsg = errData.error?.message || `HTTP Error ${res.status}`;
-                            throw new Error(`Google API Error: ${detailedMsg}`);
+                            throw new Error(`Koneksi Gagal: ${detailedMsg}`);
                         }
                         const data = await res.json();
                         
@@ -1382,7 +1382,7 @@
                     } catch (err) {
                         console.error("Call Gemini Caught:", err);
                         if (err.name === 'TypeError' && err.message.includes('fetch')) {
-                            throw new Error("Gagal terhubung ke internet/Google. Cek koneksi Anda atau matikan AdBlocker/VPN.");
+                            throw new Error("Gagal terhubung ke internet/Google. Cek koneksi Anda.");
                         }
                         throw new Error(err.message || "Terjadi kesalahan tidak terduga saat memanggil AI.");
                     }
@@ -1495,11 +1495,15 @@
 
                 // --- SETTINGS LOGIC ---
                 const saveSettings = () => {
-                    if (!tempApiKey.value.trim()) {
+                    const key = tempApiKey.value.trim();
+                    if (!key) {
                         alert("API Key tidak boleh kosong!");
                         return;
                     }
-                    apiKey.value = tempApiKey.value.trim();
+                    if (!key.startsWith('AIza') && !key.startsWith('AQ.')) {
+                        alert("Peringatan: Format API Key biasanya diawali 'AIza' atau 'AQ.'. Pastikan Anda menyalin dari Google AI Studio.");
+                    }
+                    apiKey.value = key;
                     localStorage.setItem('gemini_api_key', apiKey.value);
                     alert("✅ API Key berhasil disimpan!");
                     navigateTo('dashboard');
