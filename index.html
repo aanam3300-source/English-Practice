@@ -1353,8 +1353,9 @@
 
                 // --- GEMINI API HELPER ---
                 const callGemini = async (prompt, expectJson = false) => {
-                    if (!apiKey.value) throw new Error("API Key is not configured in Settings.");
+                    if (!apiKey.value) throw new Error("API Key belum disetting. Buka menu Settings ⚙️.");
                     const cleanKey = apiKey.value.trim();
+                    
                     const payload = { contents: [{ parts: [{ text: prompt }] }] };
                     if (expectJson) payload.generationConfig = { responseMimeType: "application/json" };
 
@@ -1367,13 +1368,23 @@
                         
                         if (!res.ok) {
                             const errData = await res.json().catch(() => ({}));
+                            console.error("API Error Response:", errData);
                             const detailedMsg = errData.error?.message || `HTTP Error ${res.status}`;
-                            throw new Error(`Gemini API Error: ${detailedMsg}`);
+                            throw new Error(`Google API Error: ${detailedMsg}`);
                         }
                         const data = await res.json();
+                        
+                        if (!data.candidates || data.candidates.length === 0) {
+                            throw new Error("Google memblokir respons (kemungkinan terkena filter keamanan kata).");
+                        }
+                        
                         return data.candidates[0].content.parts[0].text;
                     } catch (err) {
-                        throw new Error(err.message || "Failed to reach Gemini API. Check your internet connection.");
+                        console.error("Call Gemini Caught:", err);
+                        if (err.name === 'TypeError' && err.message.includes('fetch')) {
+                            throw new Error("Gagal terhubung ke internet/Google. Cek koneksi Anda atau matikan AdBlocker/VPN.");
+                        }
+                        throw new Error(err.message || "Terjadi kesalahan tidak terduga saat memanggil AI.");
                     }
                 };
 
@@ -1484,8 +1495,13 @@
 
                 // --- SETTINGS LOGIC ---
                 const saveSettings = () => {
-                    apiKey.value = tempApiKey.value;
+                    if (!tempApiKey.value.trim()) {
+                        alert("API Key tidak boleh kosong!");
+                        return;
+                    }
+                    apiKey.value = tempApiKey.value.trim();
                     localStorage.setItem('gemini_api_key', apiKey.value);
+                    alert("✅ API Key berhasil disimpan!");
                     navigateTo('dashboard');
                 };
 
