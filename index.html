@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- iOS PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="90-Day English">
+    <link rel="apple-touch-icon" href="https://placehold.co/180x180/007aff/ffffff?text=90D">
+    
+    <title>90-Day English Speaking Challenge</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        ios: {
+                            blue: '#007aff',
+                            green: '#34c759',
+                            gray: '#f2f2f7',
+                            darkgray: '#8e8e93',
+                            orange: '#ff9500'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+    <style>
+        /* iOS Specific Tweaks & Custom Scrollbar */
+        body {
+            background-color: #f2f2f7;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+        .safe-pb { padding-bottom: env(safe-area-inset-bottom, 20px); }
+        .safe-pt { padding-top: env(safe-area-inset-top, 20px); }
+        
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+
+        /* Markdown-like styling */
+        .material-content p { margin-bottom: 0.75rem; line-height: 1.5; }
+        .material-content strong { color: #1c1c1e; }
+        .material-content ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+    </style>
+</head>
+<body class="text-gray-900 antialiased h-screen flex flex-col overflow-hidden">
+    <div id="app" class="h-full flex flex-col">
+        
+        <!-- Navbar -->
+        <nav class="bg-white bg-opacity-90 backdrop-blur-md shadow-sm sticky top-0 z-40 safe-pt px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3">
+                <button v-if="currentRoute === 'day-detail'" @click="navigateTo('dashboard')" class="text-ios-blue text-xl px-2">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <h1 class="font-bold text-lg truncate flex-1">
+                    {{ 
+                        currentRoute === 'dashboard' ? '90-Day Challenge' : 
+                        (currentRoute === 'settings' ? 'Settings' : 
+                        (currentRoute === 'translate' ? 'Translate' : 
+                        (currentRoute === 'vocab' ? 'Vocab Builder' : 
+                        (currentRoute === 'grammar' ? 'Grammar Check' : 
+                        'Day ' + selectedDayData?.day)))) 
+                    }}
+                </h1>
+            </div>
+            <button @click="navigateTo('settings')" class="text-ios-blue text-xl px-2">
+                <i class="fa-solid fa-gear"></i>
+            </button>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="flex-1 overflow-y-auto safe-pb p-4 relative pb-24">
+            
+            <!-- ROUTE: DASHBOARD -->
+            <div v-if="currentRoute === 'dashboard'" class="space-y-6 pb-20">
+                <!-- Global Progress -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-2">Overall Progress</h2>
+                    <div class="flex justify-between items-end mb-2">
+                        <span class="text-3xl font-bold text-ios-blue">{{ overallProgress }}%</span>
+                        <span class="text-sm text-gray-500">{{ daysCompleted }} / 90 Days</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div class="bg-ios-blue h-2.5 rounded-full transition-all duration-500" :style="`width: ${overallProgress}%`"></div>
+                    </div>
+                </div>
+
+                <!-- 90 Days Grid -->
+                <div>
+                    <h2 class="text-xl font-bold mb-4">Your Journey</h2>
+                    <div class="grid grid-cols-5 gap-3 sm:grid-cols-7 md:grid-cols-10">
+                        <button 
+                            v-for="day in curriculum" 
+                            :key="day.day"
+                            @click="openDay(day)"
+                            class="relative flex flex-col items-center justify-center h-16 rounded-xl border-2 transition-transform active:scale-95"
+                            :class="[
+                                getStatusClass(day.day),
+                                day.is_weekly_exam ? 'border-dashed' : 'border-solid'
+                            ]"
+                        >
+                            <span class="text-lg font-bold" :class="getTextClass(day.day)">{{ day.day }}</span>
+                            <span v-if="day.is_weekly_exam" class="absolute -top-2 -right-2 text-xs bg-red-500 text-white rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
+                                <i class="fa-solid fa-star text-[10px]"></i>
+                            </span>
+                        </button>
+                    </div>
+                    
+                    <!-- Legend -->
+                    <div class="mt-6 flex flex-wrap justify-center gap-4 text-xs text-gray-600">
+                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-gray-200 border border-gray-300"></div> Unstarted</div>
+                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-ios-orange border border-ios-orange"></div> In Progress</div>
+                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-ios-green border border-ios-green"></div> Completed</div>
+                        <div class="flex items-center gap-1"><div class="w-3 h-3 rounded-full bg-white border-2 border-dashed border-red-400"></div> Exam</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ROUTE: DAY DETAIL -->
+            <div v-else-if="currentRoute === 'day-detail' && selectedDayData" class="space-y-5">
+                
+                <!-- Header Card -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm border-l-4" :class="selectedDayData.is_weekly_exam ? 'border-red-500' : 'border-ios-blue'">
+                    <div class="flex items-center gap-2 mb-1">
+                        <span class="text-xs font-bold px-2 py-1 rounded-md" :class="selectedDayData.is_weekly_exam ? 'bg-red-100 text-red-700' : 'bg-blue-100 text-blue-700'">
+                            {{ selectedDayData.is_weekly_exam ? 'Weekly Exam' : 'Daily Material' }}
+                        </span>
+                        <span class="text-xs text-gray-400">Day {{ selectedDayData.day }}</span>
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">{{ selectedDayData.topic }}</h2>
+                    <p class="text-sm text-gray-600 italic border-l-2 border-gray-300 pl-3">🎯 Target: {{ selectedDayData.target }}</p>
+                </div>
+
+                <!-- Material / Theory -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm material-content">
+                    <div class="flex justify-between items-start mb-3 border-b pb-2">
+                        <h3 class="font-bold text-lg flex items-center gap-2">
+                            <i class="fa-solid fa-book-open text-ios-blue"></i> Material Summary
+                        </h3>
+                        <!-- Tombol Copy Materi -->
+                        <button @click="copyMaterial(selectedDayData)" class="bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full h-8 w-8 flex items-center justify-center transition-colors active:scale-90" title="Copy Material">
+                            <i :class="isMaterialCopied ? 'fa-solid fa-check text-ios-green' : 'fa-regular fa-copy'"></i>
+                        </button>
+                    </div>
+                    <div v-html="formatMaterial(selectedDayData.material)"></div>
+                </div>
+                
+                <!-- Mark Complete Button -->
+                <button @click="markDayCompleted" class="w-full bg-ios-green text-white font-bold rounded-xl py-4 shadow-sm active:bg-green-600 transition-colors mt-4">
+                    <i class="fa-solid fa-check mr-2"></i> Mark Day as Completed
+                </button>
+            </div>
+
+            <!-- ROUTE: VOCAB BUILDER -->
+            <div v-else-if="currentRoute === 'vocab'" class="space-y-6">
+                <!-- Recommendations -->
+                <div class="bg-gradient-to-r from-purple-500 to-indigo-500 rounded-2xl p-5 shadow-sm text-white">
+                    <h3 class="font-bold text-lg mb-2"><i class="fa-solid fa-wand-magic-sparkles mr-2"></i> Vocab Recommendations</h3>
+                    <p class="text-sm mb-3 opacity-90">Type a topic (e.g. "daily activities") to get AI generated vocabularies.</p>
+                    <div class="flex gap-2">
+                        <input v-model="recKeyword" @keyup.enter="recommendVocab" type="text" placeholder="Topic keyword..." class="flex-1 rounded-xl px-3 py-2 text-gray-900 focus:outline-none">
+                        <button @click="recommendVocab" :disabled="isFetchingRecs" class="bg-white text-purple-600 px-4 py-2 rounded-xl font-bold disabled:opacity-50">
+                            <i v-if="isFetchingRecs" class="fa-solid fa-spinner fa-spin"></i>
+                            <span v-else>Get</span>
+                        </button>
+                    </div>
+                    <div v-if="recResults.length > 0" class="mt-4 space-y-2">
+                        <div v-for="(rec, i) in recResults" :key="i" class="bg-white bg-opacity-20 rounded-lg p-2 flex justify-between items-center">
+                            <div>
+                                <p class="font-bold text-sm">{{ rec.word }}</p>
+                                <p class="text-xs opacity-80">{{ rec.meaning }}</p>
+                            </div>
+                            <button @click="addVocab(rec.word, rec.meaning)" class="bg-white text-indigo-600 w-8 h-8 rounded-full flex items-center justify-center hover:scale-105 active:scale-95">
+                                <i class="fa-solid fa-plus"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Add Custom Vocab -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="font-bold text-lg mb-3"><i class="fa-solid fa-plus text-ios-blue mr-2"></i> Add New Vocab</h3>
+                    <div class="flex flex-col gap-3">
+                        <input v-model="newVocabWord" type="text" placeholder="Word in English" class="border border-gray-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-ios-blue outline-none">
+                        <input v-model="newVocabMeaning" type="text" placeholder="Meaning in Indonesian" class="border border-gray-300 rounded-xl px-3 py-2 focus:ring-2 focus:ring-ios-blue outline-none">
+                        <button @click="addVocab()" class="bg-ios-blue text-white rounded-xl py-2 font-bold active:bg-blue-600">Save Vocab</button>
+                    </div>
+                </div>
+
+                <!-- Memory Test Mode -->
+                <div v-if="myVocabs.length > 0" class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="font-bold text-lg mb-4 flex justify-between items-center">
+                        <span><i class="fa-solid fa-brain text-ios-orange mr-2"></i> Memory Test</span>
+                        <span class="text-xs font-normal text-gray-500">{{ unlearnedCount }} unlearned</span>
+                    </h3>
+                    
+                    <div v-if="!testModeActive" class="text-center">
+                        <button @click="startTest" class="bg-ios-orange text-white px-6 py-3 rounded-full font-bold shadow-md active:bg-orange-600">
+                            Start Random Test
+                        </button>
+                    </div>
+                    <div v-else class="text-center">
+                        <p class="text-3xl font-bold mb-4">{{ testVocab?.word }}</p>
+                        
+                        <button v-if="!testRevealed" @click="testRevealed = true" class="border-2 border-ios-blue text-ios-blue px-6 py-2 rounded-full font-semibold active:bg-blue-50 mb-4">
+                            Show Meaning
+                        </button>
+                        
+                        <div v-if="testRevealed" class="animate-fade-in">
+                            <p class="text-xl text-gray-700 mb-6">{{ testVocab?.meaning }}</p>
+                            <div class="flex gap-3 justify-center">
+                                <button @click="markTest(false)" class="flex-1 bg-gray-200 text-gray-700 py-3 rounded-xl font-bold">Still Learning</button>
+                                <button @click="markTest(true)" class="flex-1 bg-ios-green text-white py-3 rounded-xl font-bold">Memorized!</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Vocab List -->
+                <div class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="font-bold text-lg mb-4"><i class="fa-solid fa-list text-gray-600 mr-2"></i> My Vocab List</h3>
+                    <div v-if="myVocabs.length === 0" class="text-center text-gray-400 text-sm py-4">No vocabularies added yet.</div>
+                    <div v-else class="space-y-3">
+                        <div v-for="v in myVocabs" :key="v.id" class="flex items-center justify-between border-b pb-3 last:border-0">
+                            <div class="flex items-center gap-3">
+                                <button @click="toggleVocabLearned(v.id)" class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors" :class="v.learned ? 'bg-ios-green border-ios-green' : 'border-gray-300'">
+                                    <i v-if="v.learned" class="fa-solid fa-check text-white text-xs"></i>
+                                </button>
+                                <div>
+                                    <p class="font-semibold text-gray-800" :class="{'line-through opacity-60': v.learned}">{{ v.word }}</p>
+                                    <p class="text-sm text-gray-500">{{ v.meaning }}</p>
+                                </div>
+                            </div>
+                            <button @click="deleteVocab(v.id)" class="text-red-400 p-2 active:text-red-600">
+                                <i class="fa-solid fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ROUTE: TRANSLATE -->
+            <div v-else-if="currentRoute === 'translate'" class="space-y-6">
+                <div class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="font-bold text-lg mb-2"><i class="fa-solid fa-language text-ios-blue mr-2"></i> AI Translator</h3>
+                    <p class="text-xs text-gray-500 mb-4">Translate words or sentences easily.</p>
+                    
+                    <!-- Language Direction Toggle -->
+                    <div class="flex bg-gray-100 p-1 rounded-xl mb-4">
+                        <button @click="translateDirection = 'auto'" :class="translateDirection === 'auto' ? 'bg-white shadow-sm text-ios-blue font-bold' : 'text-gray-500'" class="flex-1 py-2 text-xs rounded-lg transition-all">Auto Detect</button>
+                        <button @click="translateDirection = 'en-id'" :class="translateDirection === 'en-id' ? 'bg-white shadow-sm text-ios-blue font-bold' : 'text-gray-500'" class="flex-1 py-2 text-xs rounded-lg transition-all">EN &rarr; ID</button>
+                        <button @click="translateDirection = 'id-en'" :class="translateDirection === 'id-en' ? 'bg-white shadow-sm text-ios-blue font-bold' : 'text-gray-500'" class="flex-1 py-2 text-xs rounded-lg transition-all">ID &rarr; EN</button>
+                    </div>
+                    
+                    <textarea v-model="translateInput" rows="4" placeholder="Enter text or sentence here..." class="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-ios-blue mb-3"></textarea>
+                    
+                    <button @click="translateText" :disabled="isTranslating" class="w-full bg-ios-blue text-white rounded-xl py-3 font-bold active:bg-blue-600 flex justify-center items-center disabled:opacity-50">
+                        <i v-if="isTranslating" class="fa-solid fa-circle-notch fa-spin mr-2"></i>
+                        Translate
+                    </button>
+                </div>
+
+                <div v-if="translateResult" class="bg-blue-50 rounded-2xl p-5 shadow-sm border border-blue-100 animate-fade-in relative">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="text-xs font-bold text-blue-400 uppercase tracking-wider">Translation Result</h4>
+                    </div>
+                    <p class="text-gray-800 whitespace-pre-wrap">{{ translateResult }}</p>
+                </div>
+            </div>
+
+            <!-- ROUTE: GRAMMAR -->
+            <div v-else-if="currentRoute === 'grammar'" class="space-y-6">
+                <div class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="font-bold text-lg mb-2"><i class="fa-solid fa-spell-check text-ios-orange mr-2"></i> Grammar Checker</h3>
+                    <p class="text-xs text-gray-500 mb-4">Type an English sentence to check for errors and get explanations.</p>
+                    
+                    <textarea v-model="grammarInput" rows="4" placeholder="I goes to school everyday..." class="w-full border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-ios-orange mb-3"></textarea>
+                    
+                    <button @click="checkGrammar" :disabled="isCheckingGrammar" class="w-full bg-ios-orange text-white rounded-xl py-3 font-bold active:bg-orange-600 flex justify-center items-center disabled:opacity-50">
+                        <i v-if="isCheckingGrammar" class="fa-solid fa-circle-notch fa-spin mr-2"></i>
+                        Check Grammar
+                    </button>
+                </div>
+
+                <div v-if="grammarResult" class="bg-orange-50 rounded-2xl p-5 shadow-sm border border-orange-100 animate-fade-in material-content">
+                    <h4 class="text-xs font-bold text-orange-400 uppercase tracking-wider mb-2">Correction & Explanation</h4>
+                    <div class="text-gray-800 text-sm" v-html="formatMaterial(grammarResult)"></div>
+                </div>
+            </div>
+
+            <!-- ROUTE: SETTINGS -->
+            <div v-else-if="currentRoute === 'settings'" class="space-y-6">
+                <div class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="font-bold text-lg mb-4"><i class="fa-solid fa-key text-ios-darkgray mr-2"></i> API Configuration</h3>
+                    <p class="text-sm text-gray-600 mb-4">Enter your Google Gemini API Key (gemini-1.5-flash) to enable AI features. Stored locally.</p>
+                    
+                    <input 
+                        type="password" 
+                        v-model="tempApiKey" 
+                        placeholder="AIzaSy..."
+                        class="w-full border border-gray-300 rounded-xl p-3 mb-4 focus:outline-none focus:ring-2 focus:ring-ios-blue"
+                    >
+                    <button @click="saveSettings" class="w-full bg-ios-blue text-white rounded-xl py-3 font-semibold active:bg-blue-600">
+                        Save Settings
+                    </button>
+                </div>
+                
+                <div class="bg-white rounded-2xl p-5 shadow-sm">
+                    <h3 class="font-bold text-lg mb-4 text-red-500"><i class="fa-solid fa-triangle-exclamation mr-2"></i> Danger Zone</h3>
+                    <button @click="resetProgress" class="w-full border-2 border-red-500 text-red-500 rounded-xl py-3 font-semibold active:bg-red-50">
+                        Reset All Progress & Vocab Data
+                    </button>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="bg-white border-t border-gray-200 flex justify-around pb-safe pt-2 px-2 z-50">
+            <button @click="navigateTo('dashboard')" :class="currentRoute === 'dashboard' || currentRoute === 'day-detail' ? 'text-ios-blue' : 'text-gray-400'" class="flex flex-col items-center p-2 w-16 transition-colors">
+                <i class="fa-solid fa-house text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">Home</span>
+            </button>
+            <button @click="navigateTo('vocab')" :class="currentRoute === 'vocab' ? 'text-ios-blue' : 'text-gray-400'" class="flex flex-col items-center p-2 w-16 transition-colors">
+                <i class="fa-solid fa-book-bookmark text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">Vocab</span>
+            </button>
+            <button @click="navigateTo('translate')" :class="currentRoute === 'translate' ? 'text-ios-blue' : 'text-gray-400'" class="flex flex-col items-center p-2 w-16 transition-colors">
+                <i class="fa-solid fa-language text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">Translate</span>
+            </button>
+            <button @click="navigateTo('grammar')" :class="currentRoute === 'grammar' ? 'text-ios-blue' : 'text-gray-400'" class="flex flex-col items-center p-2 w-16 transition-colors">
+                <i class="fa-solid fa-spell-check text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">Grammar</span>
+            </button>
+        </nav>
+    </div>
+
+    <!-- Application Logic -->
+    <script type="module">
+        const { createApp, ref, reactive, computed, onMounted, nextTick } = Vue;
+
+        // Data Silabus Lengkap Hari 1 - 90
+        const rawCurriculumData = [
+            {
+                day: 1,
+                topic: "Self-Introduction and Introducing Yourself",
+                target: "Mampu melakukan perkenalan diri dengan struktur lengkap.",
+                teori: "Perkenalan diri (Self-Introduction) mencakup 5 komponen utama:\nGreeting (salam) -> Opening (pembuka) -> Identity (nama, asal, usia, pekerjaan) -> Hobbies/Interests (kegemaran) -> Closing (penutup).\n\nFormula To Be (am/is/are):\n- I + am (I am a student / I'm Rizky)\n- You/We/They + are (You are friendly / They are from Jakarta)\n- He/She/It + is (He is an engineer / She is 25 years old)",
+                kosa: "- Greetings: Hello, Hi, Good morning, Good afternoon, Good evening\n- Openings: Let me introduce myself..., I'd like to introduce myself..., Allow me to introduce myself...\n- Identity & Origin: My name is... / I'm..., I am originally from..., I currently live in...\n- Occupation: I work as a/an [profession], I am a student at [university]\n- Closing: Nice to meet you, It's a pleasure to meet you, Thank you for your time",
+                contoh: "- Good morning! Let me introduce myself. My name is Rizky. I am originally from Lampung.\n- I work as a civil engineer. In my free time, I enjoy reading books and playing football.\n- It's a pleasure to meet you all! I look forward to learning English with you.",
+                tugas: "Speaking Practice (25m): Rekam suara perkenalan diri 1.5 - 2 menit menggunakan struktur Greeting -> Opening -> Identity -> Occupation -> Hobbies -> Closing."
+            },
+            {
+                day: 2,
+                topic: "Subject, Verb, Object (SVO) Sentence Structure",
+                target: "Memahami dan menyusun kalimat deklaratif standar bahasa Inggris.",
+                teori: "Kalimat deklaratif standar bahasa Inggris mengikuti urutan ketat: Subject (S) + Verb (V) + Object (O) + [Adverb of Place/Time].\n- Subject (Pelaku): I, You, We, They, He, She, It, Nouns.\n- Verb (Kata Kerja Aksi): eat, study, read, write, play, drink.\n- Object (Penderita/Sasaran): an apple, English, a book, coffee.\n- Adverb (Keterangan): at home, in the office, every day, quickly.\n\nAturan Penting: Berbeda dengan Bahasa Indonesia, sebuah kalimat utuh bahasa Inggris WAJIB memiliki minimal Subject dan Verb utama.",
+                kosa: "- Action Verbs: eat (makan), drink (minum), read (membaca), write (menulis), study (belajar), buy (membeli)\n- Nouns (Objects): book (buku), letter (surat), English (bahasa Inggris), coffee (kopi), car (mobil)\n- Adverbs of Place/Time: at home (di rumah), at school (di sekolah), in the office (di kantor), every day (setiap hari)",
+                contoh: "- S + V + O: I read a book. / She drinks coffee.\n- S + V + O + Place: They study English at school.\n- S + V + O + Time: We play football every weekend.",
+                tugas: "Writing & Speaking Practice (35m): Buat 10 kalimat S + V + O + Place/Time. Ucapkan setiap kalimat secara lancar dengan intonasi yang jelas."
+            },
+            {
+                day: 3,
+                topic: "Basic Pronunciation and Alphabet Sounds",
+                target: "Mampu melafalkan bunyi vokal dan konsonan dengan tepat (IPA Phonemes).",
+                teori: "Abjad bahasa Inggris memiliki 26 huruf yang menghasilkan 44 bunyi fonetik (IPA phonemes). Memahami vokal pendek (Short Vowels), vokal panjang (Long Vowels), dan konsonan dasar sangat penting agar pelafalan tidak ambigu.\nPerbedaan Bunyi Vokal IPA:\n- Short /ɪ/ vs Long /i:/: ship /ʃɪp/ (kapal) vs sheep /ʃi:p/ (domba)\n- Short /æ/ vs /e/: cat /kæt/ (kucing) vs bed /bed/ (tempat tidur)\n- Voiced vs Voiceless Consonants: /p/ (voiceless: pen) vs /b/ (voiced: ben)",
+                kosa: "- Short Vowels IPA: bit /bɪt/, cat /kæt/, cup /kʌp/, dog /dɒg/, bed /bed/\n- Long Vowels IPA: beat /bi:t/, car /kɑ:r/, boot /bu:t/, door /dɔ:r/\n- Consonant Pairs IPA: pat /pæt/ vs bat /bæt/, fan /fæn/ vs van /væn/, thin /θɪn/ vs this /ðɪs/",
+                contoh: "- Minimal Pair 1: Sit /sɪt/ vs Seat /si:t/ -> Please sit on this seat.\n- Minimal Pair 2: Pen /pen/ vs Pan /pæn/ -> Pick up the pen next to the pan.\n- Minimal Pair 3: Think /θɪŋk/ vs This /ðɪs/ -> I think this is good.",
+                tugas: "Pronunciation Practice (25m): Ulangi pelafalan 15 minimal pairs secara lisan. Perhatikan perbedaan durasi vokal panjang vs pendek serta letak lidah pada konsonan /θ/ dan /ð/."
+            },
+            {
+                day: 4,
+                topic: "Talking About Yourself and Daily Activities",
+                target: "Mampu menceritakan urutan kegiatan harian.",
+                teori: "Menceritakan latar belakang dan aktivitas harian dengan menggabungkan pola SVO dan kata frasa waktu harian (in the morning, in the afternoon, at night).\nUrutan Narasi Harian:\n1. Morning Routine: Bangun tidur, mandi, sarapan, berangkat kerja/sekolah.\n2. Daytime Routine: Aktivitas utama bekerja/belajar, makan siang, beristirahat.\n3. Evening Routine: Pulang ke rumah, makan malam, bersantai, tidur.",
+                kosa: "- Morning Routine: wake up (bangun), take a shower (mandi), get dressed (berpakaian), eat breakfast (sarapan)\n- Work/Study: go to work (pergi bekerja), attend a meeting (menghadiri rapat), study English (belajar)\n- Evening Routine: arrive home (tiba di rumah), cook dinner (memasak makan malam), go to bed (tidur)",
+                contoh: "- I wake up at 6:00 AM every morning and drink a glass of water.\n- After taking a shower, I eat breakfast with my family at 6:45 AM.\n- I leave for work at 7:30 AM and arrive at the office around 8:00 AM.",
+                tugas: "Speaking Practice (25m): Ceritakan seluruh urutan kegiatan harian Anda dari pagi hingga malam secara lisan selama 2 menit tanpa melihat teks."
+            },
+            {
+                day: 5,
+                topic: "Basic Vocabulary: People, Places, and Activities",
+                target: "Pengayaan kosakata mendasar tentang orang, tempat, dan aktivitas.",
+                teori: "Pengayaan kosakata mendasar dikelompokkan ke dalam 3 kategori utama: Orang (People/Roles), Tempat (Places/Locations), dan Aktivitas (Activities/Verbs).\nTeknik Word Association: Kelompokkan kata berdasarkan lokasi spesifik. Contoh: 'Hospital' -> doctor, nurse, patient, treatment, medicine.",
+                kosa: "- People / Roles: colleague (rekan kerja), manager (manajer), neighbor (tetangga), customer (pelanggan)\n- Places: supermarket (pasar swalayan), bank (bank), airport (bandara), restaurant (restoran), library (perpustakaan)\n- Activities: buy groceries (belanja bahan makanan), withdraw money (ambil uang), order food (pesan makanan)",
+                contoh: "- I meet my colleagues at the office every Monday morning.\n- She buys fresh fruits and vegetables at the local supermarket.\n- We order delicious food at the Italian restaurant on weekends.",
+                tugas: "Writing & Speaking (35m): Buat 3 kelompok kata berdasarkan tempat (misal: Bank, Airport, Library). Tulis dan ucapkan masing-masing 2 kalimat SVO lengkap."
+            },
+            {
+                day: 6,
+                topic: "Weekly Speaking Test: Self-Introduction & Routine Presentation",
+                target: "Ujian lisan mingguan pertama: Kelancaran dan ketepatan.",
+                teori: "Ujian lisan mingguan pertama difokuskan pada pengujian kelancaran (fluency), kejelasan pelafalan (pronunciation), serta ketepatan penggunaan SVO saat berpresentasi mandiri.",
+                kosa: "- Presentation Connectors: First of all..., Secondly..., In addition..., Furthermore..., Finally..., To conclude...",
+                contoh: "Test Prompt: 'Please introduce yourself and describe your typical weekday routine in detail.'\n- Sample Response: 'Hello everyone. My name is Anita. Today I would like to share my daily routine...'",
+                tugas: "Speaking Test (25m): Sampaikan presentasi lisan 3 menit penuh tanpa jeda ragu berlebihan. Rekam audio dan evaluasi tatabahasa serta pelafalannya."
+            },
+            {
+                day: 7,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 1: Review, Reading & Writing",
+                target: "Evaluasi membaca dan menulis struktur paragraf pendek.",
+                teori: "Evaluasi membaca dan menulis (Reading Comprehension & Paragraph Writing). Memahami struktur paragraf pendek: Topic Sentence (kalimat utama) -> Supporting Sentences (kalimat penjelas) -> Concluding Sentence (kalimat penutup).",
+                kosa: "- Text Reading Signals: for example, in fact, also, however, in conclusion, main idea",
+                contoh: "- Short Text: 'My name is Mark. I am a teacher. I live in a quiet city. Every day, I teach high school students math. In the evening, I enjoy cooking dinner with my wife.'\n- Writing Prompt: Write a 10-sentence paragraph introducing yourself and your daily habits.",
+                tugas: "Reading & Writing Practice (30m): Baca teks cerita pendek, jawab 5 soal pemahaman bacaan, lalu tuliskan 1 paragraf profil pribadi berstruktur lengkap."
+            },
+            {
+                day: 8,
+                topic: "Talking About Daily Routines and Timetables",
+                target: "Mampu menyusun alur cerita rutinitas kronologis.",
+                teori: "Menyusun alur cerita rutinitas secara runtut menggunakan penanda urutan kronologis (Chronological Sequencers): First, Then, After that, Next, Later, Finally.",
+                kosa: "- Chronological Sequencers: First (pertama), Then (kemudian), After that (setelah itu), Next (selanjutnya), Later (nanti), Finally (akhirnya)",
+                contoh: "- First, I wake up at 5:30 AM. Then, I make my bed and drink a warm glass of water.\n- After that, I exercise for 20 minutes. Next, I prepare breakfast.\n- Finally, I leave for work at 7:30 AM and arrive on time.",
+                tugas: "Speaking Practice (25m): Ceritakan jadwal rutinitas harian Anda menggunakan minimal 5 kata sequencers secara natural."
+            },
+            {
+                day: 9,
+                topic: "Simple Present Tense (Habits and General Facts)",
+                target: "Menguasai struktur Simple Present Tense.",
+                teori: "Simple Present Tense digunakan untuk menyatakan kebiasaan (habits), kebenaran umum (general facts), dan jadwal tetap.\nFormula:\n(+) S + Verb 1 (He/She/It + Verb 1 + s/es)\n(-) S + do not / does not + Verb 1\n(?) Do/Does + S + Verb 1?",
+                kosa: "- Verbs with -s/-es: works, watches, teaches, goes, studies, fixes, carries, drinks\n- General Fact Verbs: boil (mendidih), rise (terbit), set (terbenam), consist of (terdiri dari)",
+                contoh: "- Positive: She teaches English at a local high school.\n- Negative: He does not (doesn't) like drinking cold coffee.\n- Question: Does the sun rise in the east? Yes, it does.",
+                tugas: "Grammar & Speaking Practice (35m): Buat 5 kalimat positif, 5 kalimat negatif, dan 5 kalimat tanya Simple Present Tense, lalu peragakan secara lisan."
+            },
+            {
+                day: 10,
+                topic: "Pronunciation: Word Stress and Sentence Stress",
+                target: "Memahami dan melatih Word Stress & Sentence Stress.",
+                teori: "Penekanan (stress) menentukan kejelasan pesan.\n1. Word Stress: Penekanan suku kata tertentu. Contoh: PRE-sent (hadiah) vs pre-SENT (mempresentasikan).\n2. Sentence Stress: Penekanan pada kata berinformasi penting (Content Words) dibandingkan kata fungsi (Function Words).\nContoh: 'I WANT to BUY a NEW CAR.'",
+                kosa: "- Content Words (Stressed): Nouns (car), Main Verbs (buy), Adjectives (new), Adverbs (quickly)\n- Function Words (Unstressed): Pronouns, Prepositions, Articles, Auxiliaries",
+                contoh: "- Word Stress: PHO-to-graph vs pho-TOG-ra-pher vs pho-to-GRAPH-ic.\n- Sentence Stress: SHE is STUDY-ing EN-glish at HOME. (Bandingkan nada tinggi pada kata kapital).",
+                tugas: "Pronunciation Practice (25m): Baca 10 kalimat latihan dengan memberi penekanan nada (pitch accent) pada Content Words secara tepat."
+            },
+            {
+                day: 11,
+                topic: "Describing Your Daily Routine in Detail",
+                target: "Menceritakan jadwal harian utuh dengan penekanan kalimat yang tepat.",
+                teori: "Menggabungkan Simple Present Tense, Sequencers, dan Sentence Stress dalam menceritakan jadwal kerja/belajar harian secara utuh.",
+                kosa: "- Routine Words: commute (bepergian kerja), break time (jam istirahat), clock out (pulang kerja)",
+                contoh: "- I commute to work by bus every morning at 7:00 AM.\n- During break time, I chat with my colleagues.",
+                tugas: "Speaking Practice (25m): Presentasikan rutinitas kerja/belajar harian lengkap dari pagi sampai malam."
+            },
+            {
+                day: 12,
+                topic: "Time Expressions and Frequency Adverbs",
+                target: "Menguasai penggunaan Adverbs of Frequency.",
+                teori: "Penggunaan Adverbs of Frequency: Always (100%), Usually (80%), Often (60%), Sometimes (40%), Seldom (20%), Never (0%).\nPosisi: Sebelum Verb utama, setelah To Be.",
+                kosa: "- Adverbs: always, usually, often, sometimes, seldom, rarely, never",
+                contoh: "- I always drink water in the morning.\n- She is never late for her meetings.\n- They sometimes eat out.",
+                tugas: "Grammar & Writing (30m): Tulis 7 kalimat menggunakan 7 adverbs of frequency berbeda mengenai kebiasaan pribadi."
+            },
+            {
+                day: 13,
+                topic: "Speaking Test: My Daily Routine Presentation",
+                target: "Ujian Lisan: Presentasi rutinitas harian.",
+                teori: "Ujian lisan mingguan ke-2: Menyampaikan presentasi jadwal dan kebiasaan harian secara rinci dan lancar tanpa melihat catatan.",
+                kosa: "- Presentation Markers: Let me share my daily schedule..., On a typical day..., As a routine...",
+                contoh: "Prompt: 'Describe your daily routine from morning to night.'\nSample: 'On a typical weekday, my day starts at 5:30 AM...'",
+                tugas: "Speaking Test (25m): Presentasi lisan 3 menit berurutan tentang rutinitas harian lengkap."
+            },
+            {
+                day: 14,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 2: Reading Comprehension & Writing",
+                target: "Evaluasi membaca teks jadwal dan perbandingan.",
+                teori: "Evaluasi membaca teks jadwal harian orang lain dan menuliskan analisis perbandingan kebiasaan sehat vs tidak sehat.",
+                kosa: "- Health Expressions: stay hydrated, eat balanced meals, get enough sleep, sedentary lifestyle",
+                contoh: "Reading passage about daily habits of productive people.\nWriting prompt: Compare your habits with a healthy routine.",
+                tugas: "Reading & Writing (35m): Jawab 5 soal pemahaman bacaan dan tuliskan 1 paragraf analisis kebiasaan sehat."
+            },
+            {
+                day: 15,
+                topic: "Talking About Past Experiences",
+                target: "Mampu menyatakan waktu lampau secara tepat.",
+                teori: "Pengenalan konsep konteks waktu lampau (Past Time Context) menggunakan kata penanda waktu pasti: yesterday, last night, two days ago, in 2020, last week.",
+                kosa: "- Time Markers: yesterday (kemarin), last night (tadi malam), two days ago (2 hari lalu), last year (tahun lalu)",
+                contoh: "- I visited my uncle yesterday.\n- They traveled to Bali last year.\n- She called me two hours ago.",
+                tugas: "Speaking Practice (25m): Sebutkan 5 kejadian berkesan yang Anda lakukan minggu lalu dengan kata penanda waktu lampau."
+            },
+            {
+                day: 16,
+                topic: "Simple Past Tense and Irregular Verbs",
+                target: "Menguasai Simple Past Tense dan perubahannya.",
+                teori: "Simple Past Tense digunakan untuk kejadian yang dimulai dan SELESAI di masa lalu.\nFormula:\n(+) S + Verb 2\n(-) S + did not (didn't) + Verb 1\n(?) Did + S + Verb 1?\nRegular Verbs (+ed), Irregular Verbs berubah bentuk (go -> went).",
+                kosa: "- Irregular Verbs List: go-went-gone, eat-ate-eaten, buy-bought-bought, see-saw-seen, write-wrote-written",
+                contoh: "- (+) I visited my grandparents last weekend.\n- (-) She didn't buy any souvenirs yesterday.\n- (?) Did you watch the match last night?",
+                tugas: "Grammar & Speaking (35m): Ucapkan 10 ubahan Verb 1 ke Verb 2 irregular, lalu buat 5 kalimat pengalaman lampau."
+            },
+            {
+                day: 17,
+                topic: "Listening to Past-Tense Conversations",
+                target: "Melatih pendengaran mengenali bunyi akhiran -ed.",
+                teori: "Menyimak dialog percakapan liburan atau akhir pekan. Melatih pendengaran mengenali bunyi akhiran -ed: /t/ (worked), /d/ (lived), /ɪd/ (wanted).",
+                kosa: "- ED Endings IPA: /t/ sound: worked, walked. /d/ sound: lived, played. /ɪd/ sound: wanted, needed.",
+                contoh: "Dialog: 'How was your weekend?' 'It was great! I visited my family and played football.'",
+                tugas: "Listening & Pronunciation (30m): Dengarkan audio percakapan lampau dan klasifikasikan 15 kata kerja akhiran -ed ke dalam 3 kelompok bunyi IPA."
+            },
+            {
+                day: 18,
+                topic: "Storytelling About Yesterday & Last Weekend",
+                target: "Mampu menceritakan kejadian masa lampau berurutan.",
+                teori: "Menceritakan alur cerita kejadian kemarin/akhir pekan dengan kronologi jelas: Opening -> Event 1 -> Event 2 -> Climax -> Ending.",
+                kosa: "- Story Connectors: It all started when..., Suddenly..., After a while..., In the end...",
+                contoh: "Last Saturday, I went to the beach with my friends. Suddenly, it started to rain heavily. In the end, we went to a coffee shop.",
+                tugas: "Speaking Practice (25m): Ceritakan secara lisan pengalaman akhir pekan Anda selama 2-3 menit secara spontan."
+            },
+            {
+                day: 19,
+                topic: "Vocabulary: Feelings, Emotions, and Experiences",
+                target: "Menguasai kosakata emosi dan pengalaman.",
+                teori: "Penguasaan kata sifat emosi dan perasaan untuk memperkaya penceritaan: happy, exhausted, excited, disappointed, surprised, confused, relieved.",
+                kosa: "- Emotions: exhausted (sangat lelah), excited (antusias), disappointed (kecewa), relieved (lega), confused (bingung)",
+                contoh: "- I felt exhausted after running the marathon.\n- She was thrilled when she passed the exam.",
+                tugas: "Writing & Speaking (30m): Buat 5 kalimat yang menggambarkan perasaan Anda dalam berbagai situasi di masa lalu."
+            },
+            {
+                day: 20,
+                topic: "Speaking Test: What I Did Last Week",
+                target: "Ujian Lisan: Menceritakan pengalaman di waktu lampau.",
+                teori: "Ujian lisan minggu ke-3: Menceritakan pengalaman bermakna di waktu lampau menggunakan Simple Past Tense secara akurat dan lancar.",
+                kosa: "- Test Phrases: I would like to talk about what I did last week..., The highlight was...",
+                contoh: "Prompt: 'Tell me about an interesting event that happened to you last week'.",
+                tugas: "Speaking Test (25m): Sampaikan narasi lisan 3 menit menceritakan kegiatan minggu lalu secara akurat."
+            },
+            {
+                day: 21,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 3: Reading & Writing Short Stories",
+                target: "Membaca recount text dan menulis narasi.",
+                teori: "Membaca teks cerita pengalaman pribadi (Personal Recount Text) dan menuliskan jurnal kegiatan pribadi dalam bentuk esai pendek.",
+                kosa: "- Recount Terms: recount text, orientation, events, reorientation, chronological order",
+                contoh: "Reading: A recount text about a trip to Yogyakarta.\nWriting: Write your own 150-word personal recount text.",
+                tugas: "Reading & Writing (35m): Baca teks recount 200 kata, selesaikan 5 soal pemahaman, dan tuliskan cerita pendek pengalaman Anda."
+            },
+            {
+                day: 22,
+                topic: "Describing What is Happening Right Now",
+                target: "Mendeskripsikan aktivitas saat ini.",
+                teori: "Mendeskripsikan aktivitas yang sedang berlangsung di depan mata saat ini menggunakan penanda waktu: now, right now, at the moment, currently.",
+                kosa: "- Current Signals: right now (saat ini), at the moment (saat ini), currently (saat ini), look! (lihat!)",
+                contoh: "- Look! The teacher is writing on the board.\n- I am currently talking to my colleague.",
+                tugas: "Speaking Practice (25m): Amati lingkungan sekitar Anda dan sebutkan 5 kegiatan yang sedang terjadi saat ini."
+            },
+            {
+                day: 23,
+                topic: "Present Continuous Tense",
+                target: "Menguasai Present Continuous Tense.",
+                teori: "Present Continuous Tense digunakan untuk menyatakan tindakan yang sedang berlangsung saat pembicaraan terjadi.\nFormula:\n(+) S + am/is/are + Verb-ing\n(-) S + am/is/are + not + Verb-ing\n(?) Am/Is/Are + S + Verb-ing?",
+                kosa: "- Continuous Verbs: speaking, listening, cooking, running, writing, working, sleeping",
+                contoh: "- (+) I am studying English right now.\n- (-) He is not working today; he is taking a day off.\n- (?) Are they playing football?",
+                tugas: "Grammar & Speaking (35m): Buat 5 kalimat positif, negatif, dan tanya Present Continuous Tense. Latih pelafalan imbuhan -ing."
+            },
+            {
+                day: 24,
+                topic: "Pronunciation of -ing Ending & Listening",
+                target: "Melatih pengucapan akhiran -ing secara bersih.",
+                teori: "Melatih pengucapan bunyi nasalisasi velar /ŋ/ pada akhiran -ing agar tidak diucapkan keras sebagai /ng/ atau tertukar dengan /n/.",
+                kosa: "- IPA Velar Nasal: /ŋ/ sound: singing /'sɪŋɪŋ/, running, working",
+                contoh: "Practice: I am singing a song (bukan /singingg/).\nShe is working in London.",
+                tugas: "Listening & Pronunciation (30m): Ulangi pelafalan 20 kata akhiran -ing dengan fonem /ŋ/ yang bersih dan dengarkan dialog interaktif."
+            },
+            {
+                day: 25,
+                topic: "Talking About Future Plans and Intentions",
+                target: "Membahas rencana kegiatan masa depan.",
+                teori: "Membahas rencana kegiatan besok, minggu depan, atau masa depan dengan kosa kata rencana dan agenda.",
+                kosa: "- Future Time Words: tomorrow (besok), next week (minggu depan), upcoming (mendatang), intention (niat)",
+                contoh: "- My plan for next week is to complete the project.\n- We intend to travel to East Java next month.",
+                tugas: "Speaking Practice (25m): Ceritakan 3 agenda utama yang berencana Anda lakukan di akhir pekan mendatang."
+            },
+            {
+                day: 26,
+                topic: "Future Forms: Will vs Be Going To",
+                target: "Membedakan penggunaan Will dan Be Going To.",
+                teori: "1. Be Going To (S + am/is/are + going to + Verb 1): Rencana yang sudah diputuskan (Pre-planned).\n2. Will (S + will + Verb 1): Keputusan spontan, janji, tawaran, atau prediksi.",
+                kosa: "- Future Markers: be going to (rencana pasti), will (spontan/janji), promise (berjanji), decide (memutuskan)",
+                contoh: "- Planned: I am going to visit Bali next month. (Sudah beli tiket).\n- Spontaneous: The phone is ringing. I will answer it!",
+                tugas: "Grammar & Speaking (35m): Kerjakan 10 soal pembeda 'Will' vs 'Going to', lalu peragakan dialog percakapan rencana secara lisan."
+            },
+            {
+                day: 27,
+                topic: "Speaking Test: Combining Past, Present, and Future Tenses",
+                target: "Berpindah tenses (switch) secara lancar dalam percakapan.",
+                teori: "Ujian lisan minggu ke-4: Mampu berpindah tenses secara lancar dalam satu sesi percakapan (kemarin: Simple Past, sekarang: Present Continuous, besok: Future).",
+                kosa: "- Tense Switching: Yesterday I did..., Right now I am..., Tomorrow I am going to...",
+                contoh: "Prompt: 'Tell me what you did yesterday, what you are doing now, and what you will do tomorrow.'",
+                tugas: "Speaking Test (25m): Presentasi lisan 3 menit menggabungkan 3 tenses secara akurat dan refleksif."
+            },
+            {
+                day: 28,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 4: Review, Reading & Writing Future Plans",
+                target: "Evaluasi membaca dan menulis target masa depan.",
+                teori: "Membaca artikel tentang perencanaan karir dan menuliskan esai pendek 'My Personal Goals for Next Month'.",
+                kosa: "- Goal Setting Vocabulary: short-term goal, long-term plan, achieve, milestone, target",
+                contoh: "Reading passage on setting realistic learning targets.\nWriting prompt: Outline 3 personal goals for next month.",
+                tugas: "Reading & Writing (35m): Baca artikel 250 kata dan tuliskan esai rencana 150 kata menggunakan tenses masa depan."
+            },
+            {
+                day: 29,
+                topic: "Basic Grammar Written Assessment",
+                target: "Ujian tertulis komprehensif Bulan 1.",
+                teori: "Evaluasi tertulis komprehensif Bulan 1 mencakup Simple Present, Simple Past, Present Continuous, Future Will/Going to, SVO, dan Vocabulary.",
+                kosa: "- Grammar Terms: tenses review, subject-verb agreement, irregular verbs, prepositions",
+                contoh: "Comprehensive test paper covering Month 1 materials (40 multiple choice & short essay questions).",
+                tugas: "Written Assessment (45m): Selesaikan lembar ujian tata bahasa dasar Bulan 1 secara mandiri."
+            },
+            {
+                day: 30,
+                topic: "Month 1 Comprehensive Speaking Assessment",
+                target: "Ujian Lisan Akhir Bulan 1.",
+                teori: "Ujian lisan akhir Bulan 1: Wawancara lisan 15 menit bersama instruktur untuk mengevaluasi fondasi kelancaran berbicara (Beginner Level).",
+                kosa: "- Evaluation Criteria: Fluency (30%), Grammar Accuracy (25%), Vocabulary (25%), Pronunciation (20%)",
+                contoh: "Interview topics: Self-introduction, daily routines, past experiences, and future plans.",
+                tugas: "Monthly Speaking Exam (30m): Wawancara lisan langsung 15 menit diikuti oleh umpan balik koreksi komprehensif."
+            },
+            {
+                day: 31,
+                topic: "Present Perfect Tense (Experience & Unfinished Time)",
+                target: "Menghubungkan masa lalu dengan masa kini.",
+                teori: "Present Perfect Tense digunakan untuk menceritakan pengalaman hidup atau tindakan yang hasilnya masih terasa saat ini.\nFormula: (+) S + have/has + Verb 3\n(-) S + have/has + not + Verb 3\n(?) Have/Has + S + Verb 3?",
+                kosa: "- Verb 3 Examples: seen, eaten, visited, done, written, spoken, traveled\n- Time Markers: already, yet, ever, never, for 5 years, since 2020",
+                contoh: "- Experience: I have visited Bali three times.\n- Result: She has lost her key, so she cannot open the door.\n- Unfinished Time: We have lived in Jakarta since 2018.",
+                tugas: "Grammar & Speaking (35m): Jawab pertanyaan 'Have you ever...?' mengenai 5 pengalaman berkesan dalam hidup Anda."
+            },
+            {
+                day: 32,
+                topic: "Present Perfect vs Simple Past Tense",
+                target: "Membedakan Present Perfect dan Simple Past.",
+                teori: "Perbedaan Kunci:\n- Simple Past: Memiliki penanda waktu pasti di masa lalu (yesterday, in 2020, 3 days ago). Contoh: I visited London in 2019.\n- Present Perfect: Waktu tidak spesifik atau kejadian masih berlangsung. Contoh: I have visited London.",
+                kosa: "- Time Contrast: Simple Past = finished time / Present Perfect = unfinished time",
+                contoh: "- Simple Past: I lost my wallet yesterday.\n- Present Perfect: I have lost my wallet (dompet masih hilang sekarang).",
+                tugas: "Grammar & Speaking (35m): Klasifikasikan 10 kalimat ke dalam Simple Past atau Present Perfect beserta alasannya."
+            },
+            {
+                day: 33,
+                topic: "Listening to Intermediate Everyday Conversations",
+                target: "Menyimak dialog bertempo sedang.",
+                teori: "Menyimak audio dialog bertempo sedang mengenai pemesanan hotel, transaksi bisnis, dan diskusi rencana liburan.",
+                kosa: "- Listening Vocab: reservation (pemesanan), itinerary (rencana perjalanan), confirmation (konfirmasi), amenity (fasilitas)",
+                contoh: "Dialog: 'I'd like to confirm my room reservation for next Tuesday.' 'Certainly, sir. May I have your name?'",
+                tugas: "Listening Comprehension (30m): Menyimak 3 audio dialog pendek dan menjawab 10 pertanyaan pemahaman isi percakapan."
+            },
+            {
+                day: 34,
+                topic: "Storytelling: Menceritakan Pengalaman Hidup",
+                target: "Bercerita pengalaman hidup dengan Present Perfect & Simple Past.",
+                teori: "Menyusun cerita pengalaman pribadi menggunakan variasi Present Perfect untuk gambaran umum dan Simple Past untuk detail rinci kejadian.",
+                kosa: "- Narrative Transition: One of the most memorable experiences I have ever had was..., It happened when...",
+                contoh: "I have traveled to many places, but my trip to Japan in 2022 was the most memorable. I visited Kyoto and ate authentic ramen.",
+                tugas: "Speaking Practice (25m): Ceritakan pengalaman paling berkesan dalam hidup Anda selama 3 menit menggunakan gabungan tenses tersebut."
+            },
+            {
+                day: 35,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 5: Vocabulary & Personality Traits",
+                target: "Evaluasi kosakata sifat dan kepribadian.",
+                teori: "Pengayaan kosakata deskripsi sifat dan karakter kepribadian: open-minded, reliable, ambitious, empathetic, stubborn, generous, pessimistic, optimistic.",
+                kosa: "- Personality Traits: reliable, ambitious, empathetic, stubborn, open-minded",
+                contoh: "My manager is very reliable and open-minded.\nShe is ambitious about her career goals.",
+                tugas: "Writing & Speaking (30m): Deskripsikan karakter 3 anggota keluarga atau rekan kerja Anda menggunakan minimal 6 kata sifat baru."
+            },
+            {
+                day: 36,
+                topic: "Speaking Test: Presentation on Memorable Experiences",
+                target: "Presentasi pengalaman berkesan (Fluency Check).",
+                teori: "Ujian lisan minggu ke-5: Presentasi lisan 3 menit menceritakan pengalaman paling berpengaruh dalam hidup secara runtut dan jelas.",
+                kosa: "- Presentation Intro: Today I would like to present a life-changing experience...",
+                contoh: "Prompt: 'Present a memorable life experience and explain why it was significant to you.'",
+                tugas: "Speaking Test (25m): Presentasi lisan 3 menit di depan instruktur tanpa melihat catatan."
+            },
+            {
+                day: 37,
+                topic: "Reading Biography & Writing Narrative",
+                target: "Analisis biografi dan menulis narasi.",
+                teori: "Membaca teks biografi tokoh terkenal dan menuliskan cerita naratif pengalaman pribadi berdurasi 200 kata.",
+                kosa: "- Biography Terms: early life, background, breakthrough, achievement, legacy",
+                contoh: "Reading: Short biography of Steve Jobs.\nWriting: Write a 200-word personal narrative essay.",
+                tugas: "Reading & Writing (35m): Baca biografi 300 kata, analisis struktur cerita, dan tulis naskah narasi pribadi."
+            },
+            {
+                day: 38,
+                topic: "Connecting Words & Discourse Markers",
+                target: "Membuat kalimat kompleks menggunakan kata hubung.",
+                teori: "Menghubungkan dua gagasan agar kalimat menjadi kompleks, logis, dan kohesif.\n1. Kontras: Although, Even though, However\n2. Sebab-Akibat: Because, Since, Therefore\n3. Tambahan: Furthermore, In addition",
+                kosa: "- Conjunctions List: although (meskipun), however (namun), therefore (oleh karena itu), as a result (akibatnya), furthermore (selain itu)",
+                contoh: "Although it was raining heavily, we decided to go hiking.\nHe studied hard for the exam; therefore, he got an A grade.",
+                tugas: "Grammar & Speaking (35m): Buat 8 kalimat kompleks menggunakan kata hubung kontras, sebab-akibat, dan tambahan."
+            },
+            {
+                day: 39,
+                topic: "Complex Sentences & Subordinate Clauses",
+                target: "Menyusun kalimat majemuk bertingkat.",
+                teori: "Menyusun kalimat majemuk bertingkat (Main Clause + Subordinate Clause) menggunakan konjungsi subordinatif (when, while, after, before, because, if).",
+                kosa: "- Subordinate Conjunctions: when, while, after, before, because, unless",
+                contoh: "Main Clause + Subordinate: We stayed indoors because the storm was severe.\nSubordinate + Main: Before you leave, please lock the door.",
+                tugas: "Grammar & Writing (30m): Gabungkan 10 pasang kalimat tunggal menjadi kalimat majemuk bertingkat secara tepat."
+            },
+            {
+                day: 40,
+                topic: "Pronunciation: Connected Speech & Linking Sounds",
+                target: "Melatih pengucapan tersambung ala native speaker.",
+                teori: "1. Consonant to Vowel Linking: pick it up -> /pɪk.ɪt.ʌp/\n2. Vowel to Vowel Linking: go out -> /goʊ.waʊt/\n3. Elision (penghilangan bunyi): next door -> /neks.dɔːr/",
+                kosa: "- Linking Types: Consonant-to-Vowel (turn off), Vowel-to-Vowel (see it)",
+                contoh: "Read out loud -> 'An apple a day keeps the doctor away' with connected speech.\nPick it up and put it on the table.",
+                tugas: "Pronunciation Practice (25m): Latih pelafalan 15 frasa connected speech hingga terdengar fleksibel dan tidak kaku."
+            },
+            {
+                day: 41,
+                topic: "Expressing Opinions and Giving Reasons",
+                target: "Menyampaikan pendapat dan alasan dengan santun.",
+                teori: "Penguasaan frasa baku menyampaikan pendapat pribadi dan memberikan argumentasi pendukung secara santun.",
+                kosa: "- Opinion Phrases: In my opinion..., From my perspective..., I strongly believe that..., The main reason is that...",
+                contoh: "- In my opinion, learning English opens up global career opportunities.\n- From my perspective, working from home improves productivity.",
+                tugas: "Speaking Practice (25m): Sampaikan pendapat dan 2 alasan pendukung mengenai topik 'Penggunaan AI dalam Pendidikan'."
+            },
+            {
+                day: 42,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 6: Opinion, Agreement, & Disagreement",
+                target: "Evaluasi merespons pendapat secara profesional.",
+                teori: "Kosakata dan frasa baku untuk menyetujui, menolak, atau memberikan tanggapan berimbang dalam diskusi.",
+                kosa: "- Agreement & Disagreement: I completely agree (setuju penuh), I see your point but... (paham tapi...), I respectfully disagree (menolak santun)",
+                contoh: "I completely agree with your assessment.\nI see your point, but we also need to consider the budget constraint.",
+                tugas: "Writing & Speaking (30m): Tulis dan peragakan 5 frasa sanggahan santun dalam situasi diskusi kerja."
+            },
+            {
+                day: 43,
+                topic: "Speaking Test: Debate & Stating Opinions",
+                target: "Diskusi dan debat interaktif menyampaikan opini.",
+                teori: "Ujian lisan minggu ke-6: Diskusi/debat interaktif menyampaikan setuju atau tidak setuju mengenai isu 'Work from Home vs Work from Office'.",
+                kosa: "- Debate Expressions: I would like to point out that..., On the contrary..., My argument is based on...",
+                contoh: "Prompt: 'Express your stance on Remote Work vs Office Work and defend your view.'",
+                tugas: "Speaking Test (25m): Debat lisan 4 menit bersama instruktur menyampaikan dan mempertahankan pendapat."
+            },
+            {
+                day: 44,
+                topic: "Reading Opinion Pieces & Essay Writing",
+                target: "Membaca opini dan menulis esai argumentatif.",
+                teori: "Membaca artikel opini koran/media dan menuliskan paragraf argumentatif berisi pendapat pribadi yang terstruktur.",
+                kosa: "- Essay Structure: Thesis statement, supporting argument, counter-argument, conclusion",
+                contoh: "Reading: Opinion editorial on public transportation development.\nWriting: Write a 150-word argumentative response essay.",
+                tugas: "Reading & Writing (35m): Analisis teks opini 300 kata dan buat esai argumentatif pendek berisi pandangan pribadi."
+            },
+            {
+                day: 45,
+                topic: "Comparative and Superlative Adjectives",
+                target: "Aturan Membandingkan Benda/Tempat/Orang.",
+                teori: "1. Comparative (Lebih): 1 suku kata (Adj + -er), 2+ suku kata (more + Adj).\n2. Superlative (Paling): 1 suku kata (the + Adj + -est), 2+ suku kata (the most + Adj).",
+                kosa: "- Adjective Degrees: small - smaller - smallest, expensive - more expensive - most expensive, good - better - best",
+                contoh: "Comparative: Driving a car is faster than riding a bicycle.\nSuperlative: Mount Everest is the highest mountain in the world.",
+                tugas: "Grammar & Speaking (35m): Buat 5 kalimat Comparative dan 5 kalimat Superlative membandingkan fasilitas kota."
+            },
+            {
+                day: 46,
+                topic: "Adverbs vs Adjectives Usage",
+                target: "Membedakan penggunaan kata sifat dan kata keterangan.",
+                teori: "Membedakan kata sifat (Adjectives - menjelaskan kata benda) dan kata keterangan (Adverbs - menjelaskan verb/adjective/adverb lain).\nFormulasi Adverb (-ly): quick -> quickly. Irregular: good -> well, fast -> fast.",
+                kosa: "- Adverb Pairs: slow/slowly, quiet/quietly, fluent/fluently, hard/hard, good/well",
+                contoh: "Adjective: She is a careful driver. (Menjelaskan 'driver')\nAdverb: She drives carefully. (Menjelaskan 'drives')",
+                tugas: "Grammar & Writing (30m): Selesaikan 12 soal pilihan kata sifat vs kata keterangan secara tepat."
+            },
+            {
+                day: 47,
+                topic: "Listening: Descriptions of Places & Products",
+                target: "Menyimak audio promosi wisata dan produk.",
+                teori: "Menyimak audio promosi destinasi wisata dan ulasan produk teknologi untuk melatih pemahaman deskripsi terperinci.",
+                kosa: "- Descriptive Vocab: spacious (lapang), state-of-the-art (termutakhir), durable (tahan lama), scenic (indah)",
+                contoh: "Audio Review: 'This new laptop features a sleek design, powerful processor, and a long-lasting battery life.'",
+                tugas: "Listening Practice (30m): Simak 2 audio deskripsi produk dan lengkapi lembar informasi spesifikasi barang."
+            },
+            {
+                day: 48,
+                topic: "Describing People, Places, and Experiences",
+                target: "Mendeskripsikan menggunakan panca indera.",
+                teori: "Menggunakan panca indera (Sight, Sound, Smell, Feel) dalam mendeskripsikan tempat favorit, seseorang, atau pengalaman secara mendalam.",
+                kosa: "- Sensory Adjectives: vibrant (hidup/berwarna), peaceful (tenang), aromatic (harum), crowded (ramai), chilly (dingin)",
+                contoh: "The mountain resort offers breathtaking views, crisp cold air, and peaceful surroundings.",
+                tugas: "Speaking Practice (25m): Deskripsikan destinasi liburan impian Anda secara detail menggunakan kata sifat panca indera selama 3 menit."
+            },
+            {
+                day: 49,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 7: Advanced Descriptive Expressions",
+                target: "Menggunakan kosakata deskripsi kaya nuansa.",
+                teori: "Pengayaan kata sifat kaya nuansa makna untuk komunikasi tingkat lanjut: picturesque, bustling, breathtaking, cramped, serene, ancient, modern, lavish.",
+                kosa: "- Advanced Descriptives: picturesque (indah seperti lukisan), bustling (ramai sibuk), serene (tenang tenteram), cramped (sempit)",
+                contoh: "Venice is famous for its picturesque canals and historic architecture.\nThe market was bustling with street vendors.",
+                tugas: "Writing & Speaking (30m): Tulis dan ucapkan 6 kalimat deskripsi menggunakan kata sifat kelas atas di atas."
+            },
+            {
+                day: 50,
+                topic: "Speaking Test: Comparing Two Destinations",
+                target: "Presentasi perbandingan tempat/produk.",
+                teori: "Ujian lisan minggu ke-7: Presentasi lisan membandingkan dua kota atau dua gadget teknologi menggunakan Comparatives & Superlatives.",
+                kosa: "- Comparison Markers: In comparison to..., While X is..., Y on the other hand offers...",
+                contoh: "Prompt: 'Compare two smartphones or two cities you have visited and recommend the best option.'",
+                tugas: "Speaking Test (25m): Presentasi lisan 3 menit membandingkan 2 opsi pilihan beserta alasan perbandingannya."
+            },
+            {
+                day: 51,
+                topic: "Reading Descriptive Text & Writing",
+                target: "Menulis ulasan (review) destinasi wisata.",
+                teori: "Membaca teks deskripsi lokasi wisata dan menuliskan ulasan (review) destinasi wisata lokal berstruktur komprehensif.",
+                kosa: "- Review Structure: Introduction, key features, personal experience, verdict/recommendation",
+                contoh: "Reading: Travel review of Komodo National Park.\nWriting: Write a 150-word review of a local tourist spot.",
+                tugas: "Reading & Writing (35m): Baca teks deskripsi 300 kata, jawab soal pemahaman, dan buat ulasan tempat wisata."
+            },
+            {
+                day: 52,
+                topic: "Modal Verbs: Can, Could, Should, Must, May, Might",
+                target: "Fungsi dan penggunaan Modal Verbs.",
+                teori: "Fungsi Modal Verbs:\n- Ability: Can, Could.\n- Advice: Should.\n- Obligation: Must / Have to.\n- Permission: May / Can I.\n- Possibility: Might / May.",
+                kosa: "- Modal Verbs: can (bisa), could (bisa lampau/sopan), should (seharusnya), must (wajib), may/might (mungkin)",
+                contoh: "You should consult a doctor if the fever persists.\nWe must submit the report before 5:00 PM.",
+                tugas: "Grammar & Speaking (35m): Buat 6 kalimat menggunakan modal verbs berbeda untuk situasi kemampuan, saran, dan kewajiban."
+            },
+            {
+                day: 53,
+                topic: "Asking Questions & Making Polite Requests",
+                target: "Mengajukan pertanyaan sopan dan meminta bantuan.",
+                teori: "Teknik mengajukan pertanyaan sopan (Polite Requests) dan meminta bantuan di lingkungan profesional/sehari-hari.",
+                kosa: "- Polite Markers: Could you please...?, Would you mind [Verb-ing]...?, I was wondering if you could...",
+                contoh: "Could you please pass me the document?\nWould you mind closing the window?",
+                tugas: "Speaking Practice (25m): Peragakan 5 skenario meminta bantuan secara sopan dengan berbagai tingkat keformalan."
+            },
+            {
+                day: 54,
+                topic: "Listening to Natural Native Conversations",
+                target: "Menyimak rekaman penutur asli bertempo wajar.",
+                teori: "Menyimak rekaman dialog penutur asli bertempo wajar yang menggunakan idiom dan phrasal verbs sehari-hari.",
+                kosa: "- Conversational Fillers: Well, actually..., You know..., To be honest..., Mind you...",
+                contoh: "Audio Dialog: 'To be honest, I'm not really feeling well today.' 'Oh, you should take the day off then.'",
+                tugas: "Listening Practice (30m): Menyimak percakapan native 3 menit dan mencatat kata idiomatis serta frasa percakapan."
+            },
+            {
+                day: 55,
+                topic: "Roleplay: Real-Life Situations (Hotel, Airport, Restaurant)",
+                target: "Simulasi percakapan nyata layanan pelanggan.",
+                teori: "Simulasi percakapan nyata dalam berbagai situasi: Check-in hotel, meminta informasi di bandara, memesan makanan di restoran.",
+                kosa: "- Roleplay Expressions: I have a reservation under the name of..., Could I see the menu?, Where is gate 4?",
+                contoh: "Hotel Check-in: 'Good afternoon. I have a reservation for a deluxe room under John Smith.'",
+                tugas: "Speaking Practice (25m): Lakukan simulasi roleplay percakapan layanan pelanggan di hotel/restoran bersama pengajar."
+            },
+            {
+                day: 56,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 8: Daily Expressions & Phrasal Verbs 1",
+                target: "Penguasaan phrasal verbs harian.",
+                teori: "Penguasaan phrasal verbs populer yang sering digunakan dalam komunikasi percakapan alami.",
+                kosa: "- Phrasal Verbs 1: figure out (memecahkan), give up (menyerah), look forward to (menantikan), turn down (menolak), call off (membatalkan)",
+                contoh: "We need to figure out a solution quickly.\nThey decided to call off the meeting.",
+                tugas: "Writing & Speaking (30m): Buat 5 kalimat percakapan menggunakan phrasal verbs yang dipelajari."
+            },
+            {
+                day: 57,
+                topic: "Speaking Test: Situational Roleplay Conversation",
+                target: "Ujian lisan skenario layanan darurat.",
+                teori: "Ujian lisan minggu ke-8: Simulasi percakapan spontan berdasarkan skenario situasi layanan atau situasi darurat tak terduga.",
+                kosa: "- Situational Prompts: Handling a hotel room complaint, asking for a flight refund, ordering a special meal",
+                contoh: "Prompt: 'You arrived at your hotel but your room is not ready. Speak with the receptionist.'",
+                tugas: "Speaking Test (25m): Peragakan roleplay percakapan spontan 4 menit sesuai skenario yang diberikan secara mendadak."
+            },
+            {
+                day: 58,
+                topic: "Weekly Review, Dialogue Reading & Script Writing",
+                target: "Menulis naskah dialog layanan publik.",
+                teori: "Review penguasaan Phrasal Verbs dan menuliskan naskah percakapan (dialogue script) untuk skenario pelayanan publik.",
+                kosa: "- Script Writing Terms: dialogue layout, speaker tags, conversational flow, polite closure",
+                contoh: "Reading: Customer service dialogue transcript.\nWriting: Write a 12-line customer complaint dialogue script.",
+                tugas: "Reading & Writing (35m): Baca dan analisis naskah dialog 200 kata, lalu buat naskah percakapan layanan pelanggan."
+            },
+            {
+                day: 59,
+                topic: "Intermediate Grammar Written Assessment",
+                target: "Evaluasi tertulis komprehensif Bulan 2.",
+                teori: "Evaluasi tertulis komprehensif Bulan 2 mencakup Present Perfect, Conjunctions, Comparatives, Modals, dan Phrasal Verbs.",
+                kosa: "- Assessment Scope: Present Perfect vs Past Simple, Conjunctions, Adjectives/Adverbs, Modals, Phrasal Verbs",
+                contoh: "Written Test Paper: 40 questions covering Month 2 intermediate grammar topics.",
+                tugas: "Written Assessment (45m): Selesaikan tes evaluasi tertulis tata bahasa tingkat intermediate secara mandiri."
+            },
+            {
+                day: 60,
+                topic: "Month 2 Comprehensive Speaking Assessment",
+                target: "Ujian lisan akhir tingkat menengah (Intermediate).",
+                teori: "Ujian lisan akhir Bulan 2: Evaluasi tingkat kelancaran berbicara menengah (Building Fluency) bersama instruktur.",
+                kosa: "- Intermediate Rubric: Fluency & Coherence (30%), Grammar (25%), Vocabulary (25%), Pronunciation (20%)",
+                contoh: "Interactive speaking assessment on presenting opinions, past experiences, and polite requests.",
+                tugas: "Monthly Speaking Exam (30m): Wawancara lisan 15 menit dan penyampaian lembar evaluasi capaian tingkat intermediate."
+            },
+            {
+                day: 61,
+                topic: "Past Continuous vs Past Simple Tense",
+                target: "Menjelaskan dua peristiwa di masa lalu yang berkaitan.",
+                teori: "Menjelaskan kejadian sedang berlangsung yang dipotong oleh kejadian lain.\nFormula:\n- [Past Continuous] + WHEN + [Past Simple]\n- WHILE + [Past Continuous], [Past Simple]",
+                kosa: "- Time Interrupters: when (ketika), while (selagi)",
+                contoh: "I was driving home when the accident happened.\nWhile they were discussing the budget, the manager entered.",
+                tugas: "Grammar & Speaking (35m): Buat 6 kalimat menggabungkan Past Continuous dan Past Simple, lalu peragakan secara lisan."
+            },
+            {
+                day: 62,
+                topic: "Past Perfect Tense (Had + Verb 3)",
+                target: "Menggunakan tenses untuk urutan masa lalu.",
+                teori: "Past Perfect Tense digunakan untuk menyatakan tindakan yang telah SELESAI terjadi SEBELUM tindakan lain di masa lalu terjadi.\nUrutan Kejadian: Kejadian 1 (Past Perfect) terjadi lebih dulu daripada Kejadian 2 (Simple Past).",
+                kosa: "- Past Perfect Signal: had + Verb 3, before, after, by the time, already",
+                contoh: "She had finished her presentation before the director arrived.\nBy the time we got to the cinema, the movie had already started.",
+                tugas: "Grammar & Speaking (35m): Buat 5 kalimat Past Perfect Tense yang menjelaskan urutan 2 kejadian di masa lalu."
+            },
+            {
+                day: 63,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 9: Listening to Advanced Podcasts",
+                target: "Menyimak audio autentik bertempo cepat.",
+                teori: "Menyimak materi audio autentik bertempo cepat tanpa subtitle (podcasts/interview eksekutif) untuk melatih kepekaan mendengarkan aksen native.",
+                kosa: "- Advanced Audio Vocab: perspective (sudut pandang), phenomenon (fenomena), breakdown (analisis), takeaway (poin utama)",
+                contoh: "Podcast Audio: An interview with an industry leader discussing market trends and innovation.",
+                tugas: "Listening Practice (30m): Simak audio podcast 4 menit tanpa subtitle dan rangkum 3 poin utama secara lisan."
+            },
+            {
+                day: 64,
+                topic: "Advanced Storytelling & Narrative Arc",
+                target: "Menyusun cerita kompleks dengan struktur formal.",
+                teori: "Menyusun narasi cerita kompleks menggunakan struktur narasi formal: Exposition (latar) -> Rising Action (masalah) -> Climax (puncak) -> Falling Action -> Resolution (penyelesaian).",
+                kosa: "- Narrative Arc Terms: exposition (pengenalan), climax (klimaks), conflict (konflik), resolution (resolusi)",
+                contoh: "Story Excerpt: 'The sun was setting as we reached the peak. Little did we know, a sudden blizzard was approaching...'",
+                tugas: "Speaking Practice (25m): Sampaikan cerita fiksi atau kisah nyata berdurasi 3-4 menit menggunakan alur narrative arc lengkap."
+            },
+            {
+                day: 65,
+                topic: "Vocabulary: Descriptive & Expressive Language",
+                target: "Pengayaan kata ekspresif tingkat lanjut.",
+                teori: "Pengayaan kata kerja dan kata sifat ekspresif untuk melukiskan suasana, latar, dan emosi secara mendalam.",
+                kosa: "- Expressive Verbs & Adj: illuminate (menerangi), overwhelm (menguasai emosi), intricate (rumit indah), profound (mendalam), navigate (mengatasi)",
+                contoh: "The book provides profound insights into human behavior.\nWe had to navigate through a very intricate situation.",
+                tugas: "Writing & Speaking (30m): Tulis dan ucapkan 5 kalimat ekspresif menggunakan kosakata tingkat lanjut di atas."
+            },
+            {
+                day: 66,
+                topic: "Speaking Test: Detailed Narrative Storytelling",
+                target: "Ujian lisan menceritakan narasi terperinci.",
+                teori: "Ujian lisan minggu ke-9: Menceritakan alur cerita kompleks dengan variasi tenses lampau (Past Simple, Past Continuous, Past Perfect).",
+                kosa: "- Narrative Evaluators: Chronological flow, tense accuracy, expressive vocabulary, vocal variety",
+                contoh: "Prompt: 'Tell a detailed story about an unexpected event or challenge you successfully overcame.'",
+                tugas: "Speaking Test (25m): Presentasikan cerita naratif panjang secara lisan selama 4 menit tanpa melihat catatan."
+            },
+            {
+                day: 67,
+                topic: "Complex Reading & Response Essay",
+                target: "Membaca teks naratif dan menulis esai tanggapan.",
+                teori: "Membaca teks naratif/jurnalistik kompleks dan menuliskan esai tanggapan kritis (Response Essay) berstruktur 200 kata.",
+                kosa: "- Response Terms: critical review, analysis, author's purpose, personal reflection",
+                contoh: "Reading: Excerpt from an analytical journal article.\nWriting: Write a 200-word critical response essay.",
+                tugas: "Reading & Writing (35m): Baca teks 350 kata, analisis argumen penulis, dan tuliskan esai tanggapan kritis."
+            },
+            {
+                day: 68,
+                topic: "Conditional Sentences: Zero and First",
+                target: "Menggunakan kalimat pengandaian nyata (Real Conditionals).",
+                teori: "1. Zero Conditional (Fakta Umum): If + Simple Present, Simple Present.\n2. First Conditional (Kemungkinan Nyata): If + Simple Present, Will + Verb 1.",
+                kosa: "- Conditionals 0 & 1: If + Present, Present (fakta) / If + Present, Will + V1 (kemungkinan masa depan)",
+                contoh: "Zero: If you mix red and blue, you get purple.\nFirst: If she passes the interview, she will get the job.",
+                tugas: "Grammar & Speaking (35m): Buat 4 kalimat Zero Conditional dan 4 kalimat First Conditional untuk situasi sehari-hari."
+            },
+            {
+                day: 69,
+                topic: "Second and Third Conditional",
+                target: "Menggunakan kalimat pengandaian Imajiner & Penyesalan.",
+                teori: "1. Second Conditional (Imajiner saat ini): If + Simple Past, Would + Verb 1.\n2. Third Conditional (Penyesalan masa lalu): If + Past Perfect, Would have + Verb 3.",
+                kosa: "- Conditionals 2 & 3: If + Past, Would + V1 / If + Had + V3, Would have + V3",
+                contoh: "Second: If I were the manager, I would change the work policy.\nThird: If we had left earlier, we wouldn't have missed the flight.",
+                tugas: "Grammar & Speaking (35m): Buat 4 kalimat Second Conditional (imajiner) dan 4 kalimat Third Conditional (penyesalan)."
+            },
+            {
+                day: 70,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 10: Listening to Debates",
+                target: "Melatih analisis argumen pro dan kontra.",
+                teori: "Menyimak perdebatan dua kubu mengenai isu teknologi dan lingkungan untuk melatih analisis argumen pro dan kontra.",
+                kosa: "- Debate Vocab: proponent (pendukung), opponent (penentang), rebuttal (sanggahan), policy (kebijakan)",
+                contoh: "Audio Debate: Panel discussion on renewable energy vs fossil fuels.",
+                tugas: "Listening Practice (30m): Simak audio debat 4 menit, catat 2 argumen utama dari masing-masing kubu pro dan kontra."
+            },
+            {
+                day: 71,
+                topic: "Defending Arguments & Persuasive Speaking",
+                target: "Teknik persuasi lisan (Ethos, Pathos, Logos).",
+                teori: "Teknik persuasi lisan dan cara merespons sanggahan lawan bicara secara profesional dan meyakinkan.",
+                kosa: "- Persuasive Markers: The evidence clearly demonstrates that..., Furthermore, we must consider..., To counter that point...",
+                contoh: "Speech: 'The evidence clearly demonstrates that investing in employee training increases overall productivity.'",
+                tugas: "Speaking Practice (25m): Sampaikan pidato persuasif 3 menit mempertahankan pendapat tentang isu pilihan Anda."
+            },
+            {
+                day: 72,
+                topic: "Vocabulary: Critical Thinking & Argumentation",
+                target: "Kosakata analisis kritis dan penyusunan argumen.",
+                teori: "Kosakata analisis kritis dan penyusunan argumen rasional: hypothesis, implication, evidence, perspective, counteract, substantiate.",
+                kosa: "- Critical Vocab: hypothesis (hipotesis), implication (implikasi), evidence (bukti), substantiate (membuktikan), counteract (menangkal)",
+                contoh: "We need solid empirical evidence to substantiate this claim.\nWhat are the long-term implications of this strategy?",
+                tugas: "Writing & Speaking (30m): Tulis dan peragakan 5 kalimat argumen kritis menggunakan kosakata analisis di atas."
+            },
+            {
+                day: 73,
+                topic: "Speaking Test: Solving Real-World Problems",
+                target: "Ujian lisan: Diskusi solusi masalah dunia nyata.",
+                teori: "Ujian lisan minggu ke-10: Diskusi solutif dan debat interaktif mengenai penanganan isu sosial atau masalah bisnis dunia nyata.",
+                kosa: "- Problem Solving Terms: root cause, proposed solution, feasibility, execution plan, risk assessment",
+                contoh: "Prompt: 'Propose a comprehensive solution to reduce urban traffic congestion in major cities.'",
+                tugas: "Speaking Test (25m): Presentasikan usulan solusi masalah urban selama 4 menit di hadapan instruktur."
+            },
+            {
+                day: 74,
+                topic: "Reading Editorial & Argumentative Writing",
+                target: "Membaca teks editorial dan menulis esai.",
+                teori: "Membaca teks editorial koran korporat dan menuliskan esai argumentatif (Argumentative Essay) berstruktur 250 kata.",
+                kosa: "- Editorial Terms: editorial stance, persuasive essay, counter-argument refutation, concluding call to action",
+                contoh: "Reading: Newspaper editorial on artificial intelligence ethics.\nWriting: Write a 250-word argumentative essay.",
+                tugas: "Reading & Writing (35m): Baca artikel editorial 350 kata, buat kerangka argumen, dan tulis esai argumentatif lengkap."
+            },
+            {
+                day: 75,
+                topic: "Passive Voice (Formality & Focus)",
+                target: "Menggunakan kalimat pasif untuk bahasa formal.",
+                teori: "Passive Voice digunakan ketika fokus pembicaraan adalah sasaran atau tindakan, bukan pelaku.\nFormula Umum: Subject + Be (sesuai tense) + Verb 3.",
+                kosa: "- Passive Patterns: is/are + V3 (Present), was/were + V3 (Past), has been + V3 (Perfect), will be + V3 (Future)",
+                contoh: "Active: The engineer inspected the bridge.\nPassive: The bridge was inspected by the engineer.",
+                tugas: "Grammar & Speaking (35m): Ubah 10 kalimat aktif bisnis menjadi kalimat pasif secara akurat dan lisan."
+            },
+            {
+                day: 76,
+                topic: "Relative Clauses (Defining & Non-Defining)",
+                target: "Menggabungkan dua kalimat menggunakan relative pronouns.",
+                teori: "Relative pronouns: Who (orang), Which (benda), That (orang/benda), Where (tempat), Whose (kepemilikan).\n- Defining (Penting tanpa koma)\n- Non-Defining (Tambahan dengan koma)",
+                kosa: "- Relative Pronouns: who, which, that, where, whose",
+                contoh: "Defining: I met the candidate who applied for the manager position.\nNon-Defining: My main office, which was built in 2010, is located downtown.",
+                tugas: "Grammar & Writing (30m): Gabungkan 10 pasang kalimat menggunakan relative pronouns secara tepat."
+            },
+            {
+                day: 77,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 11: Listening to Professional Interviews",
+                target: "Menyimak wawancara tingkat eksekutif.",
+                teori: "Menyimak rekaman wawancara kerja tingkat eksekutif dan presentasi peluncuran produk baru bertempo normal native speaker.",
+                kosa: "- Professional Vocab: milestone, value proposition, competitive advantage, strategic alignment",
+                contoh: "Audio Presentation: 'Our primary value proposition lies in optimizing supply chain efficiency through automation.'",
+                tugas: "Listening Practice (30m): Simak audio wawancara kerja 4 menit dan buat ringkasan kualifikasi kandidat."
+            },
+            {
+                day: 78,
+                topic: "Describing Processes and Technical Procedures",
+                target: "Menjelaskan alur kerja SOP.",
+                teori: "Menjelaskan alur kerja teknis (Standard Operating Procedure / SOP) menggunakan Passive Voice dan kata urutan proses.",
+                kosa: "- Process Sequencers: Initially, Subsequently, Prior to this, Simultaneously, In the final stage",
+                contoh: "Process Description: 'Initially, raw materials are inspected. Subsequently, they are transferred to the processing unit.'",
+                tugas: "Speaking Practice (25m): Jelaskan alur kerja prosedur teknis atau pembuatan produk di bidang Anda selama 3 menit."
+            },
+            {
+                day: 79,
+                topic: "Vocabulary: Business & Academic Professional English",
+                target: "Pengayaan kosakata bisnis formal.",
+                teori: "Pengayaan kosakata bahasa Inggris formal untuk lingkungan kerja eksekutif, akademik, dan bisnis internasional.",
+                kosa: "- Professional Terms: implement (melaksanakan), optimize (mengoptimalkan), stakeholder (pemangku kepentingan), revenue (pendapatan), discrepancy (ketidaksesuaian)",
+                contoh: "We must implement new safety protocols immediately.\nThere is a minor discrepancy in the financial statement.",
+                tugas: "Writing & Speaking (30m): Buat 6 kalimat bisnis formal menggunakan kosakata profesional di atas."
+            },
+            {
+                day: 80,
+                topic: "Speaking Test: Professional Business Presentation",
+                target: "Presentasi bisnis atau SOP lisan.",
+                teori: "Ujian lisan minggu ke-11: Presentasi lisan alur kerja atau bisnis plan berdurasi 5 menit di depan instruktur.",
+                kosa: "- Presentation Structure: Executive summary, market background, process flow, financial projection, call to action",
+                contoh: "Prompt: 'Deliver a 5-minute business proposal presentation introducing a new product or workflow.'",
+                tugas: "Speaking Test (25m): Presentasikan proposal bisnis lisan 5 menit menggunakan alat bantu visual dan Passive Voice."
+            },
+            {
+                day: 81,
+                topic: "Business Article Reading & SOP Writing",
+                target: "Menulis dokumen panduan (SOP).",
+                teori: "Membaca laporan tahunan bisnis dan menuliskan dokumen panduan prosedur teknis (SOP Document) singkat berstruktur formal.",
+                kosa: "- SOP Document Terms: scope, purpose, step-by-step procedure, responsibility, safety guidelines",
+                contoh: "Reading: Annual corporate report excerpt.\nWriting: Write a 200-word Standard Operating Procedure (SOP) document.",
+                tugas: "Reading & Writing (35m): Baca laporan bisnis 350 kata dan buat dokumen prosedur teknis (SOP) formal."
+            },
+            {
+                day: 82,
+                topic: "Reported Speech (Indirect Speech)",
+                target: "Melaporkan perkataan orang lain dengan Backshifting.",
+                teori: "Melaporkan kembali perkataan orang lain secara tepat dengan aturan mundur tenses (Backshifting Tenses).\n- Present Simple -> Past Simple\n- Present Continuous -> Past Continuous\n- Will -> Would / Can -> Could",
+                kosa: "- Reporting Verbs: said (mengatakan), told (memberitahu), stated (menyatakan), asked (bertanya), inquired (menanyakan)",
+                contoh: "Direct: 'I will finish the report tomorrow,' said John.\nIndirect: John said that he would finish the report the following day.",
+                tugas: "Grammar & Speaking (35m): Ubah 10 kalimat langsung (Direct Speech) menjadi kalimat tidak langsung (Reported Speech) secara lisan."
+            },
+            {
+                day: 83,
+                topic: "Advanced Common Errors Correction",
+                target: "Koreksi common fossilized errors.",
+                teori: "Membedah dan mengoreksi kesalahan tata bahasa tingkat lanjut yang sering dilakukan pembelajar (Common Fossilized Errors).\nContoh Salah: I am agree with you.\nBenar: I agree with you.",
+                kosa: "- Error Categories: double conjunctions, incorrect prepositions, unneeded 'to be', word form confusions",
+                contoh: "Analysis: Discussing fossilized errors in professional writing and speaking.",
+                tugas: "Grammar Practice (30m): Koreksi 15 kalimat ber-eror tata bahasa tingkat lanjut dan jelaskan aturan perbaikannya."
+            },
+            {
+                day: 84,
+                is_weekly_exam: true,
+                topic: "Weekly Exam 12: Full Authentic Listening",
+                target: "Menyimak pidato tanpa subtitle.",
+                teori: "Latihan menyimak pidato autentik (TED Talks / News Broadcasts) secara penuh tanpa bantuan subtitle dan merangkum isi secara lisan.",
+                kosa: "- Summary Phrases: The speaker emphasizes that..., Key points raised include..., In summary...",
+                contoh: "Audio TED Talk: 'The power of habit formation and incremental growth'.",
+                tugas: "Listening Practice (30m): Simak pidato autentik 5 menit tanpa subtitle dan sampaikan rangkuman lisan 2 menit."
+            },
+            {
+                day: 85,
+                topic: "Impromptu Speaking & Topic Randomizer",
+                target: "Latihan berbicara spontan (PREP Method).",
+                teori: "Latihan berbicara spontan mendadak selama 2-3 menit tanpa persiapan tentang topik acak yang diberikan oleh instruktur.",
+                kosa: "- Impromptu Strategy: PREP Method: Point (poin utama) -> Reason (alasan) -> Example (contoh) -> Point (penutup)",
+                contoh: "Random Topic: 'Should social media usage be restricted for teenagers?'",
+                tugas: "Speaking Practice (25m): Lakukan 3 kali sesi Impromptu Speaking 2 menit menggunakan formulasi PREP Method."
+            },
+            {
+                day: 86,
+                topic: "Vocabulary: Advanced Idioms & Native Expressions",
+                target: "Pengayaan idiom percakapan.",
+                teori: "Pengayaan idiom kelas atas dan ekspresi percakapan alami ala penutur asli.",
+                kosa: "- Advanced Idioms: hit the nail on the head (tepat sasaran), bite the bullet (menghadapi kesulitan), break the ice (mencairkan suasana), blessing in disguise (hikmah terselubung)",
+                contoh: "His explanation hit the nail on the head.\nWe decided to bite the bullet and invest in the new technology.",
+                tugas: "Writing & Speaking (30m): Buat 6 kalimat percakapan menggunakan idiom kelas atas yang dipelajari."
+            },
+            {
+                day: 87,
+                topic: "Speaking Test: Spontaneous Conversation Assessment",
+                target: "Ujian lisan: Percakapan spontan 15 menit.",
+                teori: "Ujian lisan minggu ke-12: Percakapan spontan bebas topik bersama instruktur selama 15 menit penuh untuk menguji kelancaran alami.",
+                kosa: "- Spontaneous Criteria: Response speed, natural phrasing, idiomatic usage, topic maintenance",
+                contoh: "Prompt: 'Unscripted 15-minute open discussion on global trends, career goals, and personal experiences.'",
+                tugas: "Speaking Test (25m): Percakapan lisan spontan 15 menit tanpa naskah bersama pengajar."
+            },
+            {
+                day: 88,
+                topic: "Weekly Review, Speed Reading & Free Writing",
+                target: "Latihan speed reading dan free journaling.",
+                teori: "Latihan membaca cepat (Skimming & Scanning) dan menulis bebas (Free Journaling Writing) berdurasi 300 kata.",
+                kosa: "- Reading Strategies: skimming (membaca cepat ide utama), scanning (mencari informasi spesifik)",
+                contoh: "Reading: 400-word article for speed reading exercise (target: 2 minutes).\nWriting: 300-word free journaling essay.",
+                tugas: "Reading & Writing (35m): Selesaikan tes membaca cepat dan buat tulisan bebas 300 kata tentang refleksi perjalanan belajar."
+            },
+            {
+                day: 89,
+                topic: "Comprehensive Final Written Examination",
+                target: "Ujian Akhir Tertulis Hari ke-89.",
+                teori: "Ujian Akhir Tertulis: Menguji penguasaan tata bahasa, kosakata, listening comprehension, dan writing dari Hari 1 hingga 88.",
+                kosa: "- Final Exam Sections: Section A: Advanced Grammar (40%), Section B: Business Vocab (20%), Section C: Listening (20%), Section D: Essay (20%)",
+                contoh: "Final Written Test Paper: Comprehensive 90-minute examination.",
+                tugas: "Written Examination (90m): Selesaikan lembar ujian akhir tertulis komprehensif 90 Hari Bahasa Inggris."
+            },
+            {
+                day: 90,
+                topic: "Final Speaking Examination & Graduation",
+                target: "Wawancara akhir dan kelulusan program.",
+                teori: "Wawancara lisan akhir komprehensif, penyampaian evaluasi kelulusan akhir, dan rekomendasi jalur belajar mandiri selanjutnya.\n\nTarget Proyeksi: Level B2/C1 (Upper-Intermediate / Advanced Spontaneous Speaker).",
+                kosa: "- Graduation Metrics: CEFR Level Projection (Target: B2/C1), Final Speaking Score, Personal Learning Roadmap",
+                contoh: "Final Oral Interview: Comprehensive 20-minute exit speaking examination and diploma assessment.",
+                tugas: "Final Speaking Exam (45m): Wawancara lisan akhir 20 menit diikuti penyerahan rapor capaian dan rekomendasi tingkatan CEFR."
+            }
+        ];
+
+        // Generator Kurikulum Memetakan Data Ke Objek Aplikasi
+        const generateCurriculum = () => {
+            return rawCurriculumData.map((d) => {
+                return {
+                    day: d.day,
+                    is_weekly_exam: !!d.is_weekly_exam,
+                    topic: d.topic,
+                    target: d.target,
+                    material: `**Teori & Formula:**\n${d.teori}\n\n**Kosakata & Ungkapan:**\n${d.kosa}\n\n**Contoh Kalimat / Dialog:**\n${d.contoh}\n\n**Tugas Latihan Harian:**\n${d.tugas}`
+                };
+            });
+        };
+
+        const app = createApp({
+            setup() {
+                // --- STATE ---
+                const curriculum = ref(generateCurriculum());
+                const currentRoute = ref('dashboard'); // dashboard, day-detail, vocab, translate, grammar, settings
+                const selectedDayData = ref(null);
+                
+                // Progress map: day (int) -> status (0: locked, 1: in-progress, 2: completed)
+                const progressMap = reactive({});
+                const apiKey = ref('');
+                const tempApiKey = ref('');
+
+                // Vocab Builder State
+                const myVocabs = ref([]);
+                const newVocabWord = ref('');
+                const newVocabMeaning = ref('');
+                const testModeActive = ref(false);
+                const testVocab = ref(null);
+                const testRevealed = ref(false);
+                const recKeyword = ref('');
+                const recResults = ref([]);
+                const isFetchingRecs = ref(false);
+
+                // Translate State
+                const translateInput = ref('');
+                const translateResult = ref('');
+                const isTranslating = ref(false);
+                const translateDirection = ref('auto'); // 'auto', 'en-id', 'id-en'
+
+                // Grammar State
+                const grammarInput = ref('');
+                const grammarResult = ref('');
+                const isCheckingGrammar = ref(false);
+
+                // Copy Material State
+                const isMaterialCopied = ref(false);
+
+                // --- INITIALIZATION ---
+                onMounted(() => {
+                    loadData();
+                    if(Object.keys(progressMap).length === 0) progressMap[1] = 1;
+                });
+
+                // --- DATA PERSISTENCE ---
+                const loadData = () => {
+                    const savedProgress = localStorage.getItem('english_90_progress');
+                    if (savedProgress) Object.assign(progressMap, JSON.parse(savedProgress));
+                    
+                    const savedVocabs = localStorage.getItem('english_90_vocabs');
+                    if (savedVocabs) myVocabs.value = JSON.parse(savedVocabs);
+                    
+                    const savedKey = localStorage.getItem('gemini_api_key');
+                    if (savedKey) {
+                        apiKey.value = savedKey;
+                        tempApiKey.value = savedKey;
+                    }
+                };
+
+                const saveData = () => {
+                    localStorage.setItem('english_90_progress', JSON.stringify(progressMap));
+                    localStorage.setItem('english_90_vocabs', JSON.stringify(myVocabs.value));
+                };
+
+                // --- NAVIGATION ---
+                const navigateTo = (route) => {
+                    currentRoute.value = route;
+                    if(route === 'dashboard') {
+                        selectedDayData.value = null;
+                    }
+                };
+
+                const openDay = (dayData) => {
+                    selectedDayData.value = dayData;
+                    if(progressMap[dayData.day] !== 2) {
+                        progressMap[dayData.day] = 1;
+                        saveData();
+                    }
+                    navigateTo('day-detail');
+                };
+
+                // --- PROGRESS LOGIC ---
+                const daysCompleted = computed(() => Object.values(progressMap).filter(status => status === 2).length);
+                const overallProgress = computed(() => Math.round((daysCompleted.value / 90) * 100));
+
+                const getStatusClass = (dayNum) => {
+                    const status = progressMap[dayNum] || 0;
+                    if (status === 2) return 'bg-ios-green border-ios-green text-white';
+                    if (status === 1) return 'bg-ios-orange border-ios-orange text-white';
+                    return 'bg-white border-gray-200 text-gray-800';
+                };
+                
+                const getTextClass = (dayNum) => {
+                    const status = progressMap[dayNum] || 0;
+                    if (status === 2 || status === 1) return 'text-white';
+                    return 'text-gray-800';
+                };
+
+                const markDayCompleted = () => {
+                    if(selectedDayData.value) {
+                        progressMap[selectedDayData.value.day] = 2;
+                        if(selectedDayData.value.day < 90 && !progressMap[selectedDayData.value.day + 1]) {
+                            progressMap[selectedDayData.value.day + 1] = 1;
+                        }
+                        saveData();
+                        setTimeout(() => navigateTo('dashboard'), 300);
+                    }
+                };
+
+                // --- MATERIAL FORMATTING & LOGIC ---
+                const formatMaterial = (text) => {
+                    if(!text) return '';
+                    let html = text
+                        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                        .replace(/\n/g, '<br>');
+                    return `<p>${html}</p>`;
+                };
+
+                const copyMaterial = async (dayData) => {
+                    if (!dayData) return;
+                    const copyText = `DAY ${dayData.day}: ${dayData.topic}\n🎯 Target: ${dayData.target}\n\n${dayData.material}`;
+                    
+                    try {
+                        // Cek apakah Clipboard API modern tersedia (biasanya butuh HTTPS)
+                        if (navigator.clipboard && window.isSecureContext) {
+                            await navigator.clipboard.writeText(copyText);
+                        } else {
+                            // Metode Fallback untuk penggunaan lokal (file:///)
+                            const textArea = document.createElement("textarea");
+                            textArea.value = copyText;
+                            
+                            // Sembunyikan textarea agar tidak merusak UI
+                            textArea.style.position = "absolute";
+                            textArea.style.left = "-999999px";
+                            document.body.appendChild(textArea);
+                            
+                            textArea.focus();
+                            textArea.select();
+                            
+                            const successful = document.execCommand('copy');
+                            document.body.removeChild(textArea);
+                            
+                            if (!successful) throw new Error('Metode fallback copy gagal.');
+                        }
+                        
+                        isMaterialCopied.value = true;
+                        setTimeout(() => {
+                            isMaterialCopied.value = false;
+                        }, 2000); // Reset ikon setelah 2 detik
+                    } catch (err) {
+                        console.error('Failed to copy material: ', err);
+                        alert('Gagal menyalin teks. Perangkat ini mungkin memblokir akses clipboard.');
+                    }
+                };
+
+                // --- GEMINI API HELPER ---
+                const callGemini = async (prompt, expectJson = false) => {
+                    if (!apiKey.value) throw new Error("API Key is not configured in Settings.");
+                    const payload = { contents: [{ parts: [{ text: prompt }] }] };
+                    if (expectJson) payload.generationConfig = { responseMimeType: "application/json" };
+
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.value}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!res.ok) throw new Error("Request failed. Check your API Key or connection.");
+                    const data = await res.json();
+                    return data.candidates[0].content.parts[0].text;
+                };
+
+                // --- NEW FEATURES: TRANSLATE ---
+                const translateText = async () => {
+                    if (!translateInput.value.trim()) return;
+                    isTranslating.value = true;
+                    translateResult.value = '';
+                    try {
+                        let directionPrompt = "If the text is in English, translate it to Indonesian. If it is in Indonesian, translate it to English.";
+                        if (translateDirection.value === 'en-id') {
+                            directionPrompt = "Translate the following text to Indonesian. Even if it seems ambiguous, output the Indonesian translation.";
+                        } else if (translateDirection.value === 'id-en') {
+                            directionPrompt = "Translate the following text to English. Even if it seems ambiguous, output the English translation.";
+                        }
+
+                        const prompt = `${directionPrompt} Return ONLY the translated text without extra explanation. Text: "${translateInput.value}"`;
+                        translateResult.value = await callGemini(prompt);
+                    } catch (e) {
+                        translateResult.value = e.message;
+                    } finally {
+                        isTranslating.value = false;
+                    }
+                };
+
+                // --- NEW FEATURES: GRAMMAR CHECKER ---
+                const checkGrammar = async () => {
+                    if (!grammarInput.value.trim()) return;
+                    isCheckingGrammar.value = true;
+                    grammarResult.value = '';
+                    try {
+                        const prompt = `Act as an expert English teacher. Check the following English text for grammar errors. If correct, say so. If there are errors, point them out, provide the corrected version, and explain the rules briefly in Indonesian. Format with Markdown. Text: "${grammarInput.value}"`;
+                        grammarResult.value = await callGemini(prompt);
+                    } catch (e) {
+                        grammarResult.value = "Error: " + e.message;
+                    } finally {
+                        isCheckingGrammar.value = false;
+                    }
+                };
+
+                // --- NEW FEATURES: VOCAB BUILDER ---
+                const unlearnedCount = computed(() => myVocabs.value.filter(v => !v.learned).length);
+
+                const addVocab = (w = newVocabWord.value, m = newVocabMeaning.value) => {
+                    if (!w.trim() || !m.trim()) return;
+                    // Check duplicate
+                    if (myVocabs.value.some(v => v.word.toLowerCase() === w.toLowerCase())) {
+                        alert("Kosakata sudah ada di daftar!");
+                        return;
+                    }
+                    myVocabs.value.unshift({
+                        id: Date.now() + Math.random(),
+                        word: w.trim(),
+                        meaning: m.trim(),
+                        learned: false
+                    });
+                    newVocabWord.value = '';
+                    newVocabMeaning.value = '';
+                    saveData();
+                };
+
+                const toggleVocabLearned = (id) => {
+                    const vocab = myVocabs.value.find(v => v.id === id);
+                    if (vocab) {
+                        vocab.learned = !vocab.learned;
+                        saveData();
+                    }
+                };
+
+                const deleteVocab = (id) => {
+                    myVocabs.value = myVocabs.value.filter(v => v.id !== id);
+                    saveData();
+                };
+
+                const recommendVocab = async () => {
+                    if (!recKeyword.value.trim()) return;
+                    isFetchingRecs.value = true;
+                    recResults.value = [];
+                    try {
+                        const prompt = `Give me exactly 5 useful English vocabulary words related to the topic '${recKeyword.value}'. Return ONLY a JSON array of objects with keys 'word' (English) and 'meaning' (Indonesian). Example: [{"word":"eat","meaning":"makan"}]`;
+                        const res = await callGemini(prompt, true);
+                        recResults.value = JSON.parse(res);
+                    } catch (e) {
+                        alert("Error generating recommendations: " + e.message);
+                    } finally {
+                        isFetchingRecs.value = false;
+                    }
+                };
+
+                const startTest = () => {
+                    const unlearned = myVocabs.value.filter(v => !v.learned);
+                    if (unlearned.length === 0) {
+                        alert("Selamat! Semua kosakata sudah dihafal atau daftar masih kosong.");
+                        testModeActive.value = false;
+                        return;
+                    }
+                    testVocab.value = unlearned[Math.floor(Math.random() * unlearned.length)];
+                    testRevealed.value = false;
+                    testModeActive.value = true;
+                };
+
+                const markTest = (isLearned) => {
+                    if (isLearned && testVocab.value) {
+                        toggleVocabLearned(testVocab.value.id);
+                    }
+                    startTest(); // Get next random word
+                };
+
+                // --- SETTINGS LOGIC ---
+                const saveSettings = () => {
+                    apiKey.value = tempApiKey.value;
+                    localStorage.setItem('gemini_api_key', apiKey.value);
+                    navigateTo('dashboard');
+                };
+
+                const resetProgress = () => {
+                    if(confirm("Are you sure? This will delete all your progress and custom vocabs.")) {
+                        for (const key in progressMap) delete progressMap[key];
+                        progressMap[1] = 1;
+                        myVocabs.value = [];
+                        saveData();
+                        navigateTo('dashboard');
+                    }
+                };
+
+                return {
+                    curriculum,
+                    currentRoute,
+                    selectedDayData,
+                    navigateTo,
+                    openDay,
+                    
+                    // Progress
+                    daysCompleted,
+                    overallProgress,
+                    getStatusClass,
+                    getTextClass,
+                    markDayCompleted,
+                    formatMaterial,
+                    copyMaterial,
+                    isMaterialCopied,
+                    
+                    // Vocab Builder
+                    myVocabs,
+                    newVocabWord,
+                    newVocabMeaning,
+                    unlearnedCount,
+                    addVocab,
+                    toggleVocabLearned,
+                    deleteVocab,
+                    testModeActive,
+                    testVocab,
+                    testRevealed,
+                    startTest,
+                    markTest,
+                    recKeyword,
+                    recResults,
+                    isFetchingRecs,
+                    recommendVocab,
+
+                    // Translate
+                    translateInput,
+                    translateResult,
+                    isTranslating,
+                    translateDirection,
+                    translateText,
+
+                    // Grammar
+                    grammarInput,
+                    grammarResult,
+                    isCheckingGrammar,
+                    checkGrammar,
+
+                    // Settings
+                    tempApiKey,
+                    saveSettings,
+                    resetProgress
+                };
+            }
+        });
+
+        app.mount('#app');
+    </script>
+</body>
+</html>
