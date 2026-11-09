@@ -34,11 +34,11 @@
         }
         
         .safe-pb {
-            padding-bottom: max(env(safe-area-inset-bottom), 24px);
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px) !important;
         }
         
         .safe-pt {
-            padding-top: max(env(safe-area-inset-top), 24px);
+            padding-top: calc(env(safe-area-inset-top, 0px) + 20px) !important;
         }
 
         /* Hide scrollbar for clean UI */
